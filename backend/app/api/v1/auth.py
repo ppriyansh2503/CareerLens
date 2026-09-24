@@ -82,6 +82,11 @@ def demo_switch_account(role: str, db: Session = Depends(get_db)):
 
     user = db.query(User).filter(User.role == role).first()
     if not user:
+        from app.seed.seed_data import seed_database_if_empty
+        seed_database_if_empty(db)
+        user = db.query(User).filter(User.role == role).first()
+
+    if not user:
         raise HTTPException(status_code=404, detail=f"No sample user found for role {role}. Please run seed script.")
 
     token = create_access_token(subject=user.id, role=user.role)

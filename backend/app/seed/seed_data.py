@@ -6,15 +6,10 @@ from app.models.student import StudentProfile
 from app.models.skill import Skill, StudentSkill
 from app.models.certificate import Certificate
 from app.models.job import Job, JobSkill
+from app.services.skill_service import get_or_create_skill
 
 def seed_database_if_empty(db: Session):
-    existing_user = db.query(User).first()
-    if existing_user:
-        return  # Database already seeded
-
-    print("[CareerLens Seed] Seeding database with realistic demo accounts, skills, and internships...")
-
-    # 1. Seed Skills
+    # 1. Seed Skills (idempotently)
     skill_definitions = [
         ("Python", "backend"),
         ("FastAPI", "backend"),
@@ -45,11 +40,15 @@ def seed_database_if_empty(db: Session):
 
     skill_objs = {}
     for name, cat in skill_definitions:
-        norm = name.lower().replace(" ", "").replace(".", "").replace("/", "").replace("(", "").replace(")", "")
-        skill = Skill(name=name, normalized_name=norm, category=cat)
-        db.add(skill)
-        db.flush()
+        skill = get_or_create_skill(db, name, category=cat)
         skill_objs[name] = skill
+
+    # 2. Check if demo accounts are already seeded
+    demo_student = db.query(User).filter(User.email == "student@careerlens.io").first()
+    if demo_student:
+        return  # Demo accounts already seeded
+
+    print("[CareerLens Seed] Seeding database with realistic demo accounts, skills, and internships...")
 
     # 2. Seed Users
     hashed_pwd = get_password_hash("password123")

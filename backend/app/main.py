@@ -7,11 +7,27 @@ from app.core.database import Base, engine, SessionLocal
 from app.api.v1.api import api_router
 from app.seed.seed_data import seed_database_if_empty
 
-# Create DB tables
-Base.metadata.create_all(bind=engine)
+from contextlib import asynccontextmanager
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_database_if_empty(db)
+    finally:
+        db.close()
+
+# Ensure DB tables and seed data exist at import time
+init_db()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
+    lifespan=lifespan,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     description="CareerLens: AI-Powered Verified Career and Internship Matching Platform API",
     version="1.0.0"
@@ -36,11 +52,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.on_event("startup")
 def startup_event():
-    db = SessionLocal()
-    try:
-        seed_database_if_empty(db)
-    finally:
-        db.close()
+    init_db()
 
 @app.get("/")
 def root():

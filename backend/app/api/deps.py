@@ -26,6 +26,10 @@ def get_current_user(
     if not token:
         # Fallback to default demo student if no token provided in demo mode
         user = db.query(User).filter(User.role == "student").first()
+        if not user:
+            from app.seed.seed_data import seed_database_if_empty
+            seed_database_if_empty(db)
+            user = db.query(User).filter(User.role == "student").first()
         if user:
             return user
         raise HTTPException(
