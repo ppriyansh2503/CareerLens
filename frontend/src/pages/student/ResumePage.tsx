@@ -34,7 +34,6 @@ export const ResumePage: React.FC = () => {
 
   const loadSampleResume = async () => {
     setLoading(true);
-    // Create a mock PDF blob representing Aarav's sample resume
     const content = `%PDF-1.4
 Aarav Sharma - Cloud Software Engineer
 Email: aarav.sharma@example.com
@@ -42,7 +41,8 @@ GitHub: github.com/aarav-sharma-dev
 LinkedIn: linkedin.com/in/aarav-sharma
 Skills: Python, FastAPI, Docker, AWS, React, TypeScript, PostgreSQL, Git, Redis, Linux
 Education: IIIT Delhi, B.Tech CSE (2026), CGPA 8.8
-Projects: High-throughput API gateway with FastAPI and Docker.`;
+Projects: High-throughput API gateway with FastAPI and Docker.
+%%EOF`;
     
     const blob = new Blob([content], { type: 'application/pdf' });
     const sampleFile = new File([blob], 'sample_aarav_sharma_resume.pdf', { type: 'application/pdf' });

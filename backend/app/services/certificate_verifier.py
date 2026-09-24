@@ -7,6 +7,7 @@ from app.models.student import StudentProfile
 from app.services.qr_scanner import QRScanner
 from app.services.ocr_service import OCRService
 from app.services.tamper_detector import TamperDetector
+from app.services.skill_service import get_or_create_skill
 
 class CertificateVerifier:
     """
@@ -183,14 +184,8 @@ class CertificateVerifier:
 
     @classmethod
     def _grant_verified_skill(cls, db: Session, student_id: int, skill_name: str):
-        # Find or create skill
-        norm_name = skill_name.lower().replace(" ", "").replace(".", "")
-        skill = db.query(Skill).filter(Skill.normalized_name == norm_name).first()
-        if not skill:
-            skill = Skill(name=skill_name, normalized_name=norm_name, category="technical")
-            db.add(skill)
-            db.commit()
-            db.refresh(skill)
+        # Find or create skill idempotently
+        skill = get_or_create_skill(db, skill_name, category="technical")
 
         # Find or create student skill
         st_skill = db.query(StudentSkill).filter(

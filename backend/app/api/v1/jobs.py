@@ -8,6 +8,7 @@ from app.models.job import Job, JobSkill
 from app.models.skill import Skill
 from app.schemas.job import JobOut, JobCreate, JobSkillOut
 from app.services.matching_engine import MatchingEngine
+from app.services.skill_service import get_or_create_skill
 
 router = APIRouter()
 
@@ -132,16 +133,9 @@ def create_job(
     db.commit()
     db.refresh(job)
 
-    # Attach skills
+    # Attach skills idempotently
     for skill_name in job_in.skills:
-        norm_name = skill_name.lower().replace(" ", "").replace(".", "")
-        skill = db.query(Skill).filter(Skill.normalized_name == norm_name).first()
-        if not skill:
-            skill = Skill(name=skill_name, normalized_name=norm_name, category="technical")
-            db.add(skill)
-            db.commit()
-            db.refresh(skill)
-
+        skill = get_or_create_skill(db, skill_name, category="technical")
         job_skill = JobSkill(job_id=job.id, skill_id=skill.id, is_mandatory=True, weight=1.0)
         db.add(job_skill)
 

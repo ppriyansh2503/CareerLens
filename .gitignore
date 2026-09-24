@@ -31,6 +31,7 @@ backend/uploads/resumes/*
 !backend/uploads/resumes/.gitkeep
 backend/uploads/certificates/*
 !backend/uploads/certificates/.gitkeep
+uploads/
 
 # Environment variables
 .env
