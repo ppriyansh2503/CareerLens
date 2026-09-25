@@ -8,6 +8,9 @@ class UserRegister(BaseModel):
     role: str = "student"  # student | recruiter | college_admin
     college_name: Optional[str] = None
     company_name: Optional[str] = None
+    department: Optional[str] = None
+    graduation_year: Optional[int] = None
+    cgpa: Optional[float] = None
 
 class UserLogin(BaseModel):
     email: str

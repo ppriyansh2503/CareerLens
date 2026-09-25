@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_recruiter
 from app.models.user import User
 from app.models.student import StudentProfile
 from app.models.certificate import Certificate
@@ -14,6 +14,7 @@ def discover_candidates(
     badge: Optional[str] = Query(None, description="Filter by badge tier: GOLD, SILVER, or ALL"),
     verified_only: bool = Query(False, description="Show only candidates with verified skills"),
     min_readiness: float = Query(0.0, description="Minimum readiness score"),
+    current_user: User = Depends(get_current_recruiter),
     db: Session = Depends(get_db)
 ):
     query = db.query(StudentProfile)
@@ -76,6 +77,7 @@ def discover_candidates(
 @router.get("/candidate/{student_id}")
 def get_candidate_credibility_card(
     student_id: int,
+    current_user: User = Depends(get_current_recruiter),
     db: Session = Depends(get_db)
 ):
     student = db.query(StudentProfile).filter(StudentProfile.id == student_id).first()

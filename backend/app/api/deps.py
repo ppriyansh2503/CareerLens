@@ -61,10 +61,6 @@ def get_current_student(
     db: Session = Depends(get_db)
 ) -> User:
     if current_user.role != "student":
-        # Check if student exists to return for demo
-        demo_student = db.query(User).filter(User.role == "student").first()
-        if demo_student:
-            return demo_student
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires student privileges",
@@ -76,9 +72,6 @@ def get_current_recruiter(
     db: Session = Depends(get_db)
 ) -> User:
     if current_user.role != "recruiter":
-        demo_recruiter = db.query(User).filter(User.role == "recruiter").first()
-        if demo_recruiter:
-            return demo_recruiter
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires recruiter privileges",
@@ -90,9 +83,6 @@ def get_current_college_admin(
     db: Session = Depends(get_db)
 ) -> User:
     if current_user.role != "college_admin":
-        demo_admin = db.query(User).filter(User.role == "college_admin").first()
-        if demo_admin:
-            return demo_admin
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires college admin privileges",

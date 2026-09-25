@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/authContext';
 import { 
   ShieldCheck, 
@@ -11,24 +11,31 @@ import {
   Users, 
   ChevronDown,
   Sparkles,
-  GraduationCap
+  GraduationCap,
+  LogIn,
+  UserPlus,
+  LogOut,
+  User as UserIcon
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { user, role, switchRole } = useAuth();
+  const { user, role, isAuthenticated, switchRole, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const studentLinks = [
     { name: 'Dashboard', path: '/student/dashboard', icon: BarChart3 },
-    { name: 'My Resume', path: '/student/resume', icon: FileText },
-    { name: 'Verify Certs', path: '/student/certificates', icon: Award },
+    { name: 'Profile', path: '/student/profile', icon: UserIcon },
+    { name: 'Resume', path: '/student/resume', icon: FileText },
+    { name: 'Verify Certificate', path: '/student/certificates', icon: Award, highlight: true },
     { name: 'Internships', path: '/student/jobs', icon: Briefcase },
     { name: 'AI Counselor', path: '/student/chat', icon: MessageSquare },
   ];
 
   const recruiterLinks = [
     { name: 'Candidate Discovery', path: '/recruiter/dashboard', icon: Users },
+    { name: 'Internship Listings', path: '/student/jobs', icon: Briefcase },
   ];
 
   const collegeLinks = [
@@ -37,12 +44,20 @@ export const Navbar: React.FC = () => {
 
   const currentLinks = role === 'recruiter' 
     ? recruiterLinks 
-    : (role === 'college_admin' ? collegeLinks : studentLinks);
+    : (role === 'college_admin' ? collegeLinks : (role === 'student' ? studentLinks : []));
 
-  const roleLabels = {
-    student: { title: 'Aarav Sharma', subtitle: 'IIIT Student (Gold Badge)', icon: GraduationCap, color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
-    recruiter: { title: 'Sneha Rao', subtitle: 'Recruiter @ TechCorp', icon: Briefcase, color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30' },
-    college_admin: { title: 'Dr. Rajiv Kapoor', subtitle: 'TPO Director @ IIIT', icon: BarChart3, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
+  const handleLogout = () => {
+    logout();
+    setDropdownOpen(false);
+    navigate('/login');
+  };
+
+  const handleDemoSwitch = async (demoRole: 'student' | 'recruiter' | 'college_admin') => {
+    await switchRole(demoRole);
+    setDropdownOpen(false);
+    if (demoRole === 'recruiter') navigate('/recruiter/dashboard');
+    else if (demoRole === 'college_admin') navigate('/college/dashboard');
+    else navigate('/student/dashboard');
   };
 
   return (
@@ -67,103 +82,202 @@ export const Navbar: React.FC = () => {
             </Link>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {currentLinks.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              return (
+          {/* Navigation Links (When Authenticated) */}
+          {isAuthenticated && (
+            <nav className="hidden lg:flex items-center gap-1">
+              {currentLinks.map((item: any) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                      item.highlight && !isActive
+                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
+                        : isActive 
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' 
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <Icon size={14} className={item.highlight ? 'text-amber-400' : ''} />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
+
+          {/* Right Action: Auth Buttons or User Persona Dropdown */}
+          <div className="flex items-center gap-2">
+            {!isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                {/* 1-Click Demo Quick Presets */}
+                <div className="relative">
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 transition-colors"
+                  >
+                    <Sparkles size={13} className="text-amber-400 fill-amber-400" />
+                    <span className="hidden sm:inline">Demo Presets</span>
+                    <ChevronDown size={13} />
+                  </button>
+
+                  {dropdownOpen && (
+                    <div 
+                      className="absolute right-0 mt-2 w-72 rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl p-2 z-50 animate-in fade-in"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <div className="px-3 py-1.5 border-b border-slate-800 text-[11px] font-bold text-slate-400">
+                        1-Click Hackathon Evaluator Login:
+                      </div>
+                      <div className="space-y-1 mt-1">
+                        <button
+                          onClick={() => handleDemoSwitch('student')}
+                          className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-slate-800 transition-colors text-xs"
+                        >
+                          <span className="text-base">👨‍🎓</span>
+                          <div>
+                            <div className="font-bold text-white">Student: Aarav Sharma</div>
+                            <div className="text-[10px] text-amber-400">AWS Gold Badges • 100% Ready</div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => handleDemoSwitch('recruiter')}
+                          className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-slate-800 transition-colors text-xs"
+                        >
+                          <span className="text-base">💼</span>
+                          <div>
+                            <div className="font-bold text-white">Recruiter: Sneha Rao</div>
+                            <div className="text-[10px] text-indigo-400">TechCorp • Verified Talent Search</div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => handleDemoSwitch('college_admin')}
+                          className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-slate-800 transition-colors text-xs"
+                        >
+                          <span className="text-base">🏛️</span>
+                          <div>
+                            <div className="font-bold text-white">College TPO: Dr. Kapoor</div>
+                            <div className="text-[10px] text-emerald-400">IIIT Delhi • Batch Readiness</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive 
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' 
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                  }`}
+                  to="/login"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition-colors"
                 >
-                  <Icon size={16} />
-                  <span>{item.name}</span>
+                  <LogIn size={13} />
+                  <span>Sign In</span>
                 </Link>
-              );
-            })}
-          </nav>
 
-          {/* Demo Role Switcher for Hackathon Judges */}
-          <div className="relative">
-            <button
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className={`flex items-center gap-3 px-3 py-1.5 rounded-xl border text-left transition-all hover:bg-slate-800 ${roleLabels[role]?.color}`}
-            >
-              <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold">
-                {role === 'student' ? '👨‍🎓' : (role === 'recruiter' ? '💼' : '🏛️')}
+                <Link
+                  to="/register"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition-colors shadow-md shadow-indigo-600/20"
+                >
+                  <UserPlus size={13} />
+                  <span>Register</span>
+                </Link>
               </div>
-              <div className="hidden sm:block">
-                <div className="text-xs font-semibold leading-tight text-white flex items-center gap-1">
-                  {roleLabels[role]?.title}
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">DEMO</span>
-                </div>
-                <div className="text-[10px] text-slate-400 leading-tight">
-                  {roleLabels[role]?.subtitle}
-                </div>
-              </div>
-              <ChevronDown size={14} className="text-slate-400" />
-            </button>
-
-            {/* Dropdown Menu */}
-            {dropdownOpen && (
-              <div 
-                className="absolute right-0 mt-2 w-72 rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2"
-                onClick={() => setDropdownOpen(false)}
-              >
-                <div className="px-3 py-2 border-b border-slate-800">
-                  <div className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                    <Sparkles size={13} className="text-indigo-400" />
-                    <span>Instant Demo Role Switcher</span>
+            ) : (
+              <div className="relative">
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700/80 text-left transition-all"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white">
+                    {user?.full_name ? user.full_name.charAt(0) : 'U'}
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Switch perspective for hackathon evaluation</p>
-                </div>
-
-                <div className="space-y-1 mt-1">
-                  <button
-                    onClick={() => switchRole('student')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
-                      role === 'student' ? 'bg-amber-500/15 border border-amber-500/30' : 'hover:bg-slate-800'
-                    }`}
-                  >
-                    <span className="text-xl">👨‍🎓</span>
-                    <div>
-                      <div className="text-xs font-semibold text-white">Student View (Aarav Sharma)</div>
-                      <div className="text-[11px] text-amber-300/80">AWS Gold Badge • Resume • Match Engine</div>
+                  <div className="hidden sm:block">
+                    <div className="text-xs font-bold text-white leading-tight">
+                      {user?.full_name}
                     </div>
-                  </button>
-
-                  <button
-                    onClick={() => switchRole('recruiter')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
-                      role === 'recruiter' ? 'bg-indigo-500/15 border border-indigo-500/30' : 'hover:bg-slate-800'
-                    }`}
-                  >
-                    <span className="text-xl">💼</span>
-                    <div>
-                      <div className="text-xs font-semibold text-white">Recruiter View (Sneha Rao)</div>
-                      <div className="text-[11px] text-indigo-300/80">TechCorp • Verified Talent Discovery</div>
+                    <div className="text-[10px] text-slate-400 capitalize">
+                      {role === 'college_admin' ? 'College TPO' : role}
                     </div>
-                  </button>
+                  </div>
+                  <ChevronDown size={13} className="text-slate-400" />
+                </button>
 
-                  <button
-                    onClick={() => switchRole('college_admin')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
-                      role === 'college_admin' ? 'bg-emerald-500/15 border border-emerald-500/30' : 'hover:bg-slate-800'
-                    }`}
+                {/* User Dropdown Menu */}
+                {dropdownOpen && (
+                  <div 
+                    className="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl p-2 z-50 animate-in fade-in"
                   >
-                    <span className="text-xl">🏛️</span>
-                    <div>
-                      <div className="text-xs font-semibold text-white">College TPO View (Dr. Kapoor)</div>
-                      <div className="text-[11px] text-emerald-300/80">Placement Readiness • Skill Gap Heatmaps</div>
+                    <div className="px-3 py-2 border-b border-slate-800 text-xs">
+                      <div className="font-bold text-white">{user?.full_name}</div>
+                      <div className="text-[11px] text-slate-400 truncate">{user?.email}</div>
+                      <div className="text-[10px] text-indigo-400 font-mono mt-0.5 uppercase tracking-wider">
+                        Role: {role}
+                      </div>
                     </div>
-                  </button>
-                </div>
+
+                    <div className="py-1 space-y-0.5 border-b border-slate-800 text-xs">
+                      {role === 'student' && (
+                        <>
+                          <Link
+                            to="/student/profile"
+                            onClick={() => setDropdownOpen(false)}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                          >
+                            <UserIcon size={14} />
+                            <span>My Profile</span>
+                          </Link>
+                          <Link
+                            to="/student/certificates"
+                            onClick={() => setDropdownOpen(false)}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-amber-300 hover:text-white hover:bg-amber-500/10 transition-colors font-medium"
+                          >
+                            <Award size={14} />
+                            <span>Verify Certificates</span>
+                          </Link>
+                        </>
+                      )}
+
+                      {/* Demo Quick Persona Switcher */}
+                      <div className="pt-1.5 px-3 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Switch Persona (Judge Demo):
+                      </div>
+                      <button
+                        onClick={() => handleDemoSwitch('student')}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                      >
+                        <span>👨‍🎓</span>
+                        <span>Student (Aarav Sharma)</span>
+                      </button>
+                      <button
+                        onClick={() => handleDemoSwitch('recruiter')}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                      >
+                        <span>💼</span>
+                        <span>Recruiter (Sneha Rao)</span>
+                      </button>
+                      <button
+                        onClick={() => handleDemoSwitch('college_admin')}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                      >
+                        <span>🏛️</span>
+                        <span>College TPO (Dr. Kapoor)</span>
+                      </button>
+                    </div>
+
+                    <div className="pt-1">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      >
+                        <LogOut size={14} />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -173,3 +287,4 @@ export const Navbar: React.FC = () => {
     </header>
   );
 };
+

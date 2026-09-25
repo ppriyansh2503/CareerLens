@@ -31,11 +31,11 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
     if user.role == "student":
         profile = StudentProfile(
             user_id=user.id,
-            headline="Aspiring Software Engineer",
-            department="Computer Science & Engineering",
-            graduation_year=2026,
-            cgpa=8.4,
-            placement_readiness_score=40.0
+            headline=f"Student at {user.college_name}" if user.college_name else "Aspiring Software Engineer",
+            department=user_in.department or "Computer Science & Engineering",
+            graduation_year=user_in.graduation_year or 2026,
+            cgpa=user_in.cgpa or 8.0,
+            placement_readiness_score=35.0
         )
         db.add(profile)
         db.commit()

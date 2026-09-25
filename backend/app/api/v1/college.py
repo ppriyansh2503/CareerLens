@@ -1,7 +1,8 @@
 from typing import Dict, Any, List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_college_admin
+from app.models.user import User
 from app.models.student import StudentProfile
 from app.models.certificate import Certificate
 from app.models.skill import StudentSkill, Skill
@@ -9,7 +10,10 @@ from app.models.skill import StudentSkill, Skill
 router = APIRouter()
 
 @router.get("/analytics")
-def get_college_placement_analytics(db: Session = Depends(get_db)):
+def get_college_placement_analytics(
+    current_user: User = Depends(get_current_college_admin),
+    db: Session = Depends(get_db)
+):
     students = db.query(StudentProfile).all()
     total_students = len(students) or 1
 
@@ -89,7 +93,10 @@ def get_college_placement_analytics(db: Session = Depends(get_db)):
     }
 
 @router.get("/students")
-def get_college_student_roster(db: Session = Depends(get_db)):
+def get_college_student_roster(
+    current_user: User = Depends(get_current_college_admin),
+    db: Session = Depends(get_db)
+):
     students = db.query(StudentProfile).all()
     roster = []
     for s in students:

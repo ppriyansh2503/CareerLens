@@ -4,10 +4,12 @@ import { authAPI } from './api';
 
 interface AuthContextType {
   user: User | null;
-  role: UserRole;
+  role: UserRole | null;
   token: string | null;
+  isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<UserRole>;
+  register: (userData: any) => Promise<UserRole>;
   logout: () => void;
   switchRole: (role: 'student' | 'recruiter' | 'college_admin') => Promise<void>;
 }
@@ -16,7 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<UserRole>('student');
+  const [role, setRole] = useState<UserRole | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('careerlens_token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -26,8 +28,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(userData);
       setRole(userData.role);
     } catch (err) {
-      console.warn('Auto login failed or token expired, auto-switching to demo student');
-      await switchRole('student');
+      console.warn('Session verification failed, logging out');
+      localStorage.removeItem('careerlens_token');
+      setUser(null);
+      setRole(null);
+      setToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -37,19 +42,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (token) {
       fetchCurrentUser();
     } else {
-      // Default to demo student for friction-free judge experience!
-      switchRole('student');
+      setIsLoading(false);
     }
   }, []);
 
-  const login = async (email: string, pass: string) => {
+  const login = async (email: string, pass: string): Promise<UserRole> => {
     setIsLoading(true);
     try {
       const data = await authAPI.login(email, pass);
       localStorage.setItem('careerlens_token', data.access_token);
       setToken(data.access_token);
       setRole(data.role);
-      await fetchCurrentUser();
+      
+      const userData = await authAPI.me();
+      setUser(userData);
+      return data.role;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (userData: any): Promise<UserRole> => {
+    setIsLoading(true);
+    try {
+      const data = await authAPI.register(userData);
+      localStorage.setItem('careerlens_token', data.access_token);
+      setToken(data.access_token);
+      setRole(data.role);
+
+      const meData = await authAPI.me();
+      setUser(meData);
+      return data.role;
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('careerlens_token');
     setUser(null);
     setToken(null);
-    setRole('student');
+    setRole(null);
   };
 
   const switchRole = async (targetRole: 'student' | 'recruiter' | 'college_admin') => {
@@ -79,7 +102,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, token, isLoading, login, logout, switchRole }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        role,
+        token,
+        isAuthenticated: !!user,
+        isLoading,
+        login,
+        register,
+        logout,
+        switchRole
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

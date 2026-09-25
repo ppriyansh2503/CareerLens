@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../lib/authContext';
 import { certificateAPI } from '../../lib/api';
 import { Certificate } from '../../lib/types';
 import { TrustBadge } from '../../components/verification/TrustBadge';
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export const CertificatePage: React.FC = () => {
+  const { user } = useAuth();
   const [certs, setCerts] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -54,10 +56,11 @@ export const CertificatePage: React.FC = () => {
     }
   };
 
-  // 1-Click Demo: Valid Certificate
+  // 1-Click Demo: Valid Certificate tailored to logged in student
   const runValidDemo = async () => {
+    const studentName = user?.full_name || 'Aarav Sharma';
     const content = `Amazon Web Services (AWS) Certificate of Achievement
-Presented to Aarav Sharma
+Presented to ${studentName}
 For completing: AWS Certified Solutions Architect - Associate
 Issued: January 2026
 Verification URL: https://aws.amazon.com/verification/AWS-DEV-984210`;

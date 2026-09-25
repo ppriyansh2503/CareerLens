@@ -1,15 +1,51 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './lib/authContext';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './lib/authContext';
 import { Navbar } from './components/common/Navbar';
 import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterPage } from './pages/auth/RegisterPage';
 import { StudentDashboard } from './pages/student/StudentDashboard';
+import { ProfilePage } from './pages/student/ProfilePage';
 import { ResumePage } from './pages/student/ResumePage';
 import { CertificatePage } from './pages/student/CertificatePage';
 import { JobsPage } from './pages/student/JobsPage';
 import { ChatPage } from './pages/student/ChatPage';
 import { RecruiterDashboard } from './pages/recruiter/RecruiterDashboard';
 import { CollegeDashboard } from './pages/college/CollegeDashboard';
+import { UserRole } from './lib/types';
+
+interface ProtectedRouteProps {
+  children: React.ReactElement;
+  allowedRoles?: UserRole[];
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="py-24 flex flex-col items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin mb-3" />
+        <p className="text-slate-400 text-xs">Authenticating session...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    if (user.role === 'student') return <Navigate to="/student/dashboard" replace />;
+    if (user.role === 'recruiter') return <Navigate to="/recruiter/dashboard" replace />;
+    if (user.role === 'college_admin') return <Navigate to="/college/dashboard" replace />;
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
 
 export const App: React.FC = () => {
   return (
@@ -20,20 +56,80 @@ export const App: React.FC = () => {
           
           <main className="flex-1">
             <Routes>
+              {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
               
-              {/* Student Routes */}
-              <Route path="/student/dashboard" element={<StudentDashboard />} />
-              <Route path="/student/resume" element={<ResumePage />} />
-              <Route path="/student/certificates" element={<CertificatePage />} />
-              <Route path="/student/jobs" element={<JobsPage />} />
-              <Route path="/student/chat" element={<ChatPage />} />
+              {/* Student Protected Routes */}
+              <Route 
+                path="/student/dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <StudentDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/student/profile" 
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/student/resume" 
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <ResumePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/student/certificates" 
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <CertificatePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/student/jobs" 
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <JobsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/student/chat" 
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <ChatPage />
+                  </ProtectedRoute>
+                } 
+              />
 
-              {/* Recruiter Routes */}
-              <Route path="/recruiter/dashboard" element={<RecruiterDashboard />} />
+              {/* Recruiter Protected Routes */}
+              <Route 
+                path="/recruiter/dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['recruiter']}>
+                    <RecruiterDashboard />
+                  </ProtectedRoute>
+                } 
+              />
 
-              {/* College TPO Routes */}
-              <Route path="/college/dashboard" element={<CollegeDashboard />} />
+              {/* College TPO Protected Routes */}
+              <Route 
+                path="/college/dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['college_admin']}>
+                    <CollegeDashboard />
+                  </ProtectedRoute>
+                } 
+              />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
