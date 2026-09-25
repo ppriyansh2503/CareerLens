@@ -119,6 +119,17 @@ def create_job(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.role != "recruiter" and current_user.role != "platform_admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Requires recruiter privileges to post jobs"
+        )
+    if getattr(current_user, "approval_status", "APPROVED") != "APPROVED":
+        raise HTTPException(
+            status_code=403,
+            detail="Recruiter account pending platform admin approval. Job posting is restricted."
+        )
+
     job = Job(
         recruiter_id=current_user.id,
         title=job_in.title,
