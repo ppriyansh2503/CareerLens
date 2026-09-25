@@ -42,9 +42,15 @@ export const Navbar: React.FC = () => {
     { name: 'Placement Analytics', path: '/college/dashboard', icon: BarChart3 },
   ];
 
-  const currentLinks = role === 'recruiter' 
-    ? recruiterLinks 
-    : (role === 'college_admin' ? collegeLinks : (role === 'student' ? studentLinks : []));
+  const adminLinks = [
+    { name: 'Admin Console', path: '/admin/dashboard', icon: ShieldCheck, highlight: true },
+  ];
+
+  const currentLinks = role === 'platform_admin'
+    ? adminLinks
+    : (role === 'recruiter' 
+      ? recruiterLinks 
+      : (role === 'college_admin' ? collegeLinks : (role === 'student' ? studentLinks : [])));
 
   const handleLogout = () => {
     logout();
@@ -199,7 +205,7 @@ export const Navbar: React.FC = () => {
                       {user?.full_name}
                     </div>
                     <div className="text-[10px] text-slate-400 capitalize">
-                      {role === 'college_admin' ? 'College TPO' : role}
+                      {role === 'college_admin' ? 'College TPO' : (role === 'platform_admin' ? 'Platform Admin' : role)}
                     </div>
                   </div>
                   <ChevronDown size={13} className="text-slate-400" />
@@ -219,6 +225,17 @@ export const Navbar: React.FC = () => {
                     </div>
 
                     <div className="py-1 space-y-0.5 border-b border-slate-800 text-xs">
+                      {role === 'platform_admin' && (
+                        <Link
+                          to="/admin/dashboard"
+                          onClick={() => setDropdownOpen(false)}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-indigo-300 hover:text-white hover:bg-indigo-500/10 transition-colors font-medium"
+                        >
+                          <ShieldCheck size={14} />
+                          <span>Admin Console</span>
+                        </Link>
+                      )}
+
                       {role === 'student' && (
                         <>
                           <Link

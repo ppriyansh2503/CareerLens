@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../../lib/authContext';
 import { recruiterAPI } from '../../lib/api';
 import { Candidate } from '../../lib/types';
 import { TrustBadge } from '../../components/verification/TrustBadge';
@@ -13,10 +14,12 @@ import {
   Building2, 
   Briefcase,
   Sparkles,
-  ArrowUpRight
+  ArrowUpRight,
+  AlertTriangle
 } from 'lucide-react';
 
 export const RecruiterDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
@@ -89,6 +92,17 @@ export const RecruiterDashboard: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Pending Approval Banner */}
+      {user?.approval_status === 'PENDING' && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs sm:text-sm flex items-center gap-3 animate-pulse">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+          <div>
+            <span className="font-bold">Organization Verification Pending: </span>
+            Your recruiter account is awaiting platform admin approval. Job posting and direct candidate contact are in preview mode until verified.
+          </div>
+        </div>
+      )}
 
       {/* Filter Toolbar */}
       <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/60 flex flex-wrap items-center justify-between gap-4">

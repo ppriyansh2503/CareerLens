@@ -215,3 +215,61 @@ export interface CollegeAnalytics {
     industry_demand: string;
   }[];
 }
+
+export interface PlatformStats {
+  total_users: number;
+  students_count: number;
+  recruiters_count: number;
+  colleges_count: number;
+  admins_count: number;
+  pending_certificates_count: number;
+  verified_certificates_count: number;
+  flagged_certificates_count: number;
+  pending_recruiters_count: number;
+  pending_colleges_count: number;
+  audit_logs_count: number;
+}
+
+export interface CertificateReviewItem {
+  id: number;
+  student_id: number;
+  student_name: string;
+  student_email: string;
+  college_name?: string;
+  title: string;
+  issuing_org: string;
+  file_path: string;
+  file_hash_sha256: string;
+  qr_detected: boolean;
+  qr_decoded_url?: string;
+  ocr_extracted_text?: string;
+  verification_score: number;
+  verification_status: string;
+  badge_tier: string;
+  admin_review_status: string;
+  admin_review_reason?: string;
+  admin_reviewed_at?: string;
+  tamper_analysis_details?: any;
+}
+
+export interface UserApprovalItem {
+  id: number;
+  email: string;
+  full_name: string;
+  role: string;
+  approval_status: 'APPROVED' | 'PENDING' | 'REJECTED';
+  college_name?: string;
+  company_name?: string;
+  created_at: string;
+}
+
+export interface AuditLogItem {
+  id: number;
+  admin_name?: string;
+  action: string;
+  target_type: string;
+  target_id: number;
+  target_name?: string;
+  details?: string;
+  created_at: string;
+}

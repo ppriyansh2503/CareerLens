@@ -9,7 +9,11 @@ import {
   ChatMessage, 
   Candidate, 
   CollegeAnalytics,
-  User
+  User,
+  PlatformStats,
+  CertificateReviewItem,
+  UserApprovalItem,
+  AuditLogItem
 } from './types';
 
 const api = axios.create({
@@ -176,6 +180,41 @@ export const collegeAPI = {
   },
   getStudents: async () => {
     const res = await api.get('/college/students');
+    return res.data;
+  }
+};
+
+export const adminAPI = {
+  getStats: async (): Promise<PlatformStats> => {
+    const res = await api.get('/admin/stats');
+    return res.data;
+  },
+  listPendingCertificates: async (): Promise<CertificateReviewItem[]> => {
+    const res = await api.get('/admin/certificates/pending');
+    return res.data;
+  },
+  reviewCertificate: async (certId: number, action: 'APPROVE' | 'REJECT', reason?: string) => {
+    const res = await api.post(`/admin/certificates/${certId}/review`, { action, reason });
+    return res.data;
+  },
+  listRecruiters: async (): Promise<UserApprovalItem[]> => {
+    const res = await api.get('/admin/approvals/recruiters');
+    return res.data;
+  },
+  reviewRecruiter: async (userId: number, action: 'APPROVE' | 'REJECT', reason?: string) => {
+    const res = await api.post(`/admin/approvals/recruiters/${userId}`, { action, reason });
+    return res.data;
+  },
+  listColleges: async (): Promise<UserApprovalItem[]> => {
+    const res = await api.get('/admin/approvals/colleges');
+    return res.data;
+  },
+  reviewCollege: async (userId: number, action: 'APPROVE' | 'REJECT', reason?: string) => {
+    const res = await api.post(`/admin/approvals/colleges/${userId}`, { action, reason });
+    return res.data;
+  },
+  getAuditLogs: async (): Promise<AuditLogItem[]> => {
+    const res = await api.get('/admin/audit-logs');
     return res.data;
   }
 };

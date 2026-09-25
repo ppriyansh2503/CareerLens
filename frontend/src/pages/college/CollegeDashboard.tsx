@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../../lib/authContext';
 import { collegeAPI } from '../../lib/api';
 import { CollegeAnalytics } from '../../lib/types';
 import { TrustBadge } from '../../components/verification/TrustBadge';
@@ -12,10 +13,12 @@ import {
   Users, 
   Award,
   Layers,
-  FileSpreadsheet
+  FileSpreadsheet,
+  AlertTriangle
 } from 'lucide-react';
 
 export const CollegeDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [analytics, setAnalytics] = useState<CollegeAnalytics | null>(null);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +68,17 @@ export const CollegeDashboard: React.FC = () => {
           <span>Export TPO Report</span>
         </button>
       </div>
+
+      {/* Pending Approval Banner */}
+      {user?.approval_status === 'PENDING' && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs sm:text-sm flex items-center gap-3 animate-pulse">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+          <div>
+            <span className="font-bold">Institutional Accreditation Pending: </span>
+            Your college administrator account is awaiting platform admin verification. Full cohort analytics and verified student roster exports are in preview mode until verified.
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

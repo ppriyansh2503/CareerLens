@@ -13,6 +13,7 @@ import { JobsPage } from './pages/student/JobsPage';
 import { ChatPage } from './pages/student/ChatPage';
 import { RecruiterDashboard } from './pages/recruiter/RecruiterDashboard';
 import { CollegeDashboard } from './pages/college/CollegeDashboard';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { UserRole } from './lib/types';
 
 interface ProtectedRouteProps {
@@ -38,6 +39,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
+    if (user.role === 'platform_admin') return <Navigate to="/admin/dashboard" replace />;
     if (user.role === 'student') return <Navigate to="/student/dashboard" replace />;
     if (user.role === 'recruiter') return <Navigate to="/recruiter/dashboard" replace />;
     if (user.role === 'college_admin') return <Navigate to="/college/dashboard" replace />;
@@ -127,6 +129,16 @@ export const App: React.FC = () => {
                 element={
                   <ProtectedRoute allowedRoles={['college_admin']}>
                     <CollegeDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+
+              {/* Platform Admin Protected Routes */}
+              <Route 
+                path="/admin/dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['platform_admin']}>
+                    <AdminDashboard />
                   </ProtectedRoute>
                 } 
               />
