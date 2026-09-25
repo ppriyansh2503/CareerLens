@@ -132,3 +132,48 @@ def test_cross_role_access_rejection():
     assert college_res.status_code == 403
     assert "college" in college_res.json()["detail"].lower()
 
+def test_canonical_accounts_login_and_me():
+    """
+    Regression test ensuring all 4 canonical accounts can authenticate,
+    receive valid JWTs, and fetch their profile without HTTP 500 errors.
+    """
+    canonical_accounts = [
+        ("student@careerlens.io", "password123", "student"),
+        ("recruiter@careerlens.io", "password123", "recruiter"),
+        ("college@careerlens.io", "password123", "college_admin"),
+        ("admin@careerlens.io", "password123", "platform_admin"),
+    ]
+
+    for email, password, expected_role in canonical_accounts:
+        res = client.post("/api/v1/auth/login", json={"email": email, "password": password})
+        assert res.status_code == 200, f"Login failed for {email}: {res.status_code} {res.text}"
+        data = res.json()
+        assert "access_token" in data
+        assert data["role"] == expected_role
+        assert data["approval_status"] == "APPROVED"
+        assert "user_id" in data
+        assert len(data["full_name"]) > 0
+
+        # Verify /me endpoint returns user profile
+        token = data["access_token"]
+        me_res = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert me_res.status_code == 200, f"/me failed for {email}: {me_res.status_code} {me_res.text}"
+        me_data = me_res.json()
+        assert me_data["email"] == email
+        assert me_data["role"] == expected_role
+
+def test_login_invalid_credentials_returns_401():
+    """
+    Ensure invalid password or unknown email returns 401 Unauthorized, never 500.
+    """
+    # Invalid password for existing user
+    res_bad_pwd = client.post("/api/v1/auth/login", json={"email": "student@careerlens.io", "password": "wrongpassword"})
+    assert res_bad_pwd.status_code == 401
+    assert "incorrect email or password" in res_bad_pwd.json()["detail"].lower()
+
+    # Unknown email
+    res_unknown = client.post("/api/v1/auth/login", json={"email": "nonexistent_user@careerlens.io", "password": "password123"})
+    assert res_unknown.status_code == 401
+    assert "incorrect email or password" in res_unknown.json()["detail"].lower()
+
+

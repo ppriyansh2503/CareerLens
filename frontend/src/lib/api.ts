@@ -16,11 +16,14 @@ import {
   AuditLogItem
 } from './types';
 
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api/v1';
+
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 15000,
 });
 
 api.interceptors.request.use((config) => {
@@ -30,6 +33,42 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Automatic fallback: if proxy fails (500/502/Network Error) when using relative URL, retry directly to backend
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (!originalRequest) return Promise.reject(error);
+
+    const isProxyFailure =
+      (error.response?.status === 500 || error.response?.status === 502) &&
+      (!error.response?.data?.detail || typeof error.response?.data === 'string');
+    const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error'));
+
+    if ((isProxyFailure || isNetworkError) && !originalRequest._retriedDirect) {
+      originalRequest._retriedDirect = true;
+      try {
+        const directBase = 'http://127.0.0.1:8000/api/v1';
+        let targetUrl = originalRequest.url || '';
+        if (targetUrl.startsWith('/api/v1')) {
+          targetUrl = targetUrl.replace('/api/v1', '');
+        }
+        if (!targetUrl.startsWith('http')) {
+          targetUrl = `${directBase}${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
+        }
+        const fallbackResponse = await axios({
+          ...originalRequest,
+          url: targetUrl,
+        });
+        return fallbackResponse;
+      } catch (retryError) {
+        return Promise.reject(retryError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const setAuthToken = (token: string | null) => {
   if (token) {
@@ -50,6 +89,13 @@ export const extractErrorMessage = (err: any, fallback: string = "An error occur
   }
   if (detail && typeof detail === 'object') {
     return detail.msg || detail.message || JSON.stringify(detail);
+  }
+  const status = err?.response?.status;
+  if (status === 500 || status === 502) {
+    return "Server error occurred. Please ensure the backend is running and try again.";
+  }
+  if (err?.message && err.message.includes('500')) {
+    return "Server error occurred. Please ensure the backend is running and try again.";
   }
   return err?.response?.data?.message || err?.message || fallback;
 };

@@ -69,14 +69,17 @@ def login(login_in: UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect email or password"
         )
     
-    token = create_access_token(subject=user.id, role=user.role)
+    role = user.role or "student"
+    full_name = user.full_name or email.split("@")[0].capitalize()
+    approval_status = getattr(user, "approval_status", "APPROVED") or "APPROVED"
+    token = create_access_token(subject=user.id, role=role)
     return {
         "access_token": token,
         "token_type": "bearer",
-        "role": user.role,
-        "approval_status": getattr(user, "approval_status", "APPROVED") or "APPROVED",
+        "role": role,
+        "approval_status": approval_status,
         "user_id": user.id,
-        "full_name": user.full_name
+        "full_name": full_name
     }
 
 @router.get("/me", response_model=UserOut)
@@ -101,11 +104,15 @@ def demo_switch_account(role: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail=f"No sample user found for role {role}. Please run seed script.")
 
-    token = create_access_token(subject=user.id, role=user.role)
+    role_val = user.role or role
+    full_name = user.full_name or f"Demo {role.capitalize()}"
+    approval_status = getattr(user, "approval_status", "APPROVED") or "APPROVED"
+    token = create_access_token(subject=user.id, role=role_val)
     return {
         "access_token": token,
         "token_type": "bearer",
-        "role": user.role,
+        "role": role_val,
+        "approval_status": approval_status,
         "user_id": user.id,
-        "full_name": user.full_name
+        "full_name": full_name
     }

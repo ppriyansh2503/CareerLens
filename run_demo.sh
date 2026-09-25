@@ -22,6 +22,16 @@ npm run dev -- --host 127.0.0.1 --port 3000 &
 FRONTEND_PID=$!
 cd ..
 
+# Wait for backend to be ready
+echo "Waiting for backend service to be ready..."
+for i in {1..30}; do
+    if curl -s http://127.0.0.1:8000/health >/dev/null 2>&1; then
+        echo "✅ Backend is healthy on http://127.0.0.1:8000"
+        break
+    fi
+    sleep 0.5
+done
+
 cleanup() {
     echo ""
     echo "Shutting down CareerLens services..."
