@@ -59,14 +59,16 @@ export const CertificatePage: React.FC = () => {
   // 1-Click Demo: Valid Certificate tailored to logged in student
   const runValidDemo = async () => {
     const studentName = user?.full_name || 'Aarav Sharma';
+    const stamp = Date.now().toString().slice(-6);
     const content = `Amazon Web Services (AWS) Certificate of Achievement
 Presented to ${studentName}
 For completing: AWS Certified Solutions Architect - Associate
 Issued: January 2026
-Verification URL: https://aws.amazon.com/verification/AWS-DEV-984210`;
+Credential ID: AWS-DEV-${user?.id || 1}-${stamp}
+Verification URL: https://aws.amazon.com/verification/AWS-DEV-${user?.id || 1}-${stamp}`;
     
     const blob = new Blob([content], { type: 'application/pdf' });
-    const demoFile = new File([blob], 'valid_aws_cert.pdf', { type: 'application/pdf' });
+    const demoFile = new File([blob], `valid_aws_cert_${stamp}.pdf`, { type: 'application/pdf' });
     
     setTitle('AWS Certified Solutions Architect');
     setIssuingOrg('Amazon Web Services (AWS)');

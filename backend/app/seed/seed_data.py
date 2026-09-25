@@ -44,14 +44,35 @@ def seed_database_if_empty(db: Session):
         skill_objs[name] = skill
 
     # 2. Check if demo accounts are already seeded
+    hashed_pwd = get_password_hash("password123")
+
+    recruiter_canonical = db.query(User).filter(User.email == "recruiter@careerlens.io").first()
+    if not recruiter_canonical:
+        db.add(User(
+            email="recruiter@careerlens.io",
+            password_hash=hashed_pwd,
+            full_name="Sneha Rao",
+            role="recruiter",
+            company_name="TechCorp Global Labs"
+        ))
+        db.commit()
+
+    college_canonical = db.query(User).filter(User.email == "college@careerlens.io").first()
+    if not college_canonical:
+        db.add(User(
+            email="college@careerlens.io",
+            password_hash=hashed_pwd,
+            full_name="Dr. Rajiv Kapoor",
+            role="college_admin",
+            college_name="Indian Institute of Information Technology (IIIT)"
+        ))
+        db.commit()
+
     demo_student = db.query(User).filter(User.email == "student@careerlens.io").first()
     if demo_student:
         return  # Demo accounts already seeded
 
     print("[CareerLens Seed] Seeding database with realistic demo accounts, skills, and internships...")
-
-    # 2. Seed Users
-    hashed_pwd = get_password_hash("password123")
 
     # Demo Student 1: Aarav Sharma (Gold Badge Student)
     student_user = User(
