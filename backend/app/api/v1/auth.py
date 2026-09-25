@@ -12,17 +12,26 @@ router = APIRouter()
 
 @router.post("/register", response_model=Token)
 def register(user_in: UserRegister, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == user_in.email).first()
+    email = user_in.email.strip().lower()
+    existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    role = user_in.role.strip().lower()
+    if role not in ["student", "recruiter", "college_admin", "platform_admin"]:
+        role = "student"
+
+    # Students and Platform Admins are auto-approved; recruiters and colleges start in PENDING
+    approval_status = "APPROVED" if role in ["student", "platform_admin"] else "PENDING"
+
     user = User(
-        email=user_in.email,
+        email=email,
         password_hash=get_password_hash(user_in.password),
-        full_name=user_in.full_name,
-        role=user_in.role,
-        college_name=user_in.college_name,
-        company_name=user_in.company_name
+        full_name=user_in.full_name.strip(),
+        role=role,
+        approval_status=approval_status,
+        college_name=user_in.college_name.strip() if user_in.college_name else None,
+        company_name=user_in.company_name.strip() if user_in.company_name else None
     )
     db.add(user)
     db.commit()
@@ -32,7 +41,7 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
         profile = StudentProfile(
             user_id=user.id,
             headline=f"Student at {user.college_name}" if user.college_name else "Aspiring Software Engineer",
-            department=user_in.department or "Computer Science & Engineering",
+            department=user_in.department.strip() if user_in.department else "Computer Science & Engineering",
             graduation_year=user_in.graduation_year or 2026,
             cgpa=user_in.cgpa or 8.0,
             placement_readiness_score=35.0
@@ -45,13 +54,15 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
         "access_token": token,
         "token_type": "bearer",
         "role": user.role,
+        "approval_status": user.approval_status,
         "user_id": user.id,
         "full_name": user.full_name
     }
 
 @router.post("/login", response_model=Token)
 def login(login_in: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == login_in.email).first()
+    email = login_in.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(login_in.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -63,6 +74,7 @@ def login(login_in: UserLogin, db: Session = Depends(get_db)):
         "access_token": token,
         "token_type": "bearer",
         "role": user.role,
+        "approval_status": getattr(user, "approval_status", "APPROVED") or "APPROVED",
         "user_id": user.id,
         "full_name": user.full_name
     }

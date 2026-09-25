@@ -10,7 +10,8 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
-    role = Column(String, default="student", nullable=False)  # student | recruiter | college_admin
+    role = Column(String, default="student", nullable=False)  # student | recruiter | college_admin | platform_admin
+    approval_status = Column(String, default="APPROVED", nullable=False)  # APPROVED | PENDING | REJECTED
     college_name = Column(String, nullable=True)
     company_name = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)

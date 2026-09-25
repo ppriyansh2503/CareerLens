@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from './types';
-import { authAPI } from './api';
+import { authAPI, setAuthToken } from './api';
 
 interface AuthContextType {
   user: User | null;
@@ -29,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRole(userData.role);
     } catch (err) {
       console.warn('Session verification failed, logging out');
-      localStorage.removeItem('careerlens_token');
+      setAuthToken(null);
       setUser(null);
       setRole(null);
       setToken(null);
@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const data = await authAPI.login(email, pass);
-      localStorage.setItem('careerlens_token', data.access_token);
+      setAuthToken(data.access_token);
       setToken(data.access_token);
       setRole(data.role);
       
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const data = await authAPI.register(userData);
-      localStorage.setItem('careerlens_token', data.access_token);
+      setAuthToken(data.access_token);
       setToken(data.access_token);
       setRole(data.role);
 
@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem('careerlens_token');
+    setAuthToken(null);
     setUser(null);
     setToken(null);
     setRole(null);
@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const data = await authAPI.demoSwitch(targetRole);
-      localStorage.setItem('careerlens_token', data.access_token);
+      setAuthToken(data.access_token);
       setToken(data.access_token);
       setRole(data.role);
       const userData = await authAPI.me();

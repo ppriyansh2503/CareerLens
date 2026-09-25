@@ -29,6 +29,13 @@ class Certificate(Base):
     tamper_analysis_details = Column(JSON, nullable=True)
     verified_at = Column(DateTime, default=datetime.utcnow)
 
+    # Admin Manual Review & Override Workflow
+    admin_review_status = Column(String, default="NONE")  # NONE | PENDING_REVIEW | APPROVED | REJECTED
+    admin_review_reason = Column(Text, nullable=True)
+    admin_reviewed_at = Column(DateTime, nullable=True)
+    admin_reviewed_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
     # Relationships
     student = relationship("StudentProfile", back_populates="certificates")
     verified_skills = relationship("StudentSkill", back_populates="certificate")
+    reviewed_by = relationship("User", foreign_keys=[admin_reviewed_by_id])

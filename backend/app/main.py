@@ -9,8 +9,38 @@ from app.seed.seed_data import seed_database_if_empty
 
 from contextlib import asynccontextmanager
 
+from sqlalchemy import inspect, text
+
+def run_sqlite_migrations():
+    try:
+        with engine.connect() as conn:
+            inspector = inspect(engine)
+            if inspector.has_table("users"):
+                user_cols = [c["name"] for c in inspector.get_columns("users")]
+                if "approval_status" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN approval_status VARCHAR DEFAULT 'APPROVED';"))
+                    conn.commit()
+
+            if inspector.has_table("certificates"):
+                cert_cols = [c["name"] for c in inspector.get_columns("certificates")]
+                if "admin_review_status" not in cert_cols:
+                    conn.execute(text("ALTER TABLE certificates ADD COLUMN admin_review_status VARCHAR DEFAULT 'NONE';"))
+                    conn.commit()
+                if "admin_review_reason" not in cert_cols:
+                    conn.execute(text("ALTER TABLE certificates ADD COLUMN admin_review_reason TEXT;"))
+                    conn.commit()
+                if "admin_reviewed_at" not in cert_cols:
+                    conn.execute(text("ALTER TABLE certificates ADD COLUMN admin_reviewed_at DATETIME;"))
+                    conn.commit()
+                if "admin_reviewed_by_id" not in cert_cols:
+                    conn.execute(text("ALTER TABLE certificates ADD COLUMN admin_reviewed_by_id INTEGER;"))
+                    conn.commit()
+    except Exception as e:
+        print(f"[CareerLens Migrations] Column migration notice: {e}")
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    run_sqlite_migrations()
     db = SessionLocal()
     try:
         seed_database_if_empty(db)

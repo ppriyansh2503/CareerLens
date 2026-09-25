@@ -1,10 +1,11 @@
-export type UserRole = 'student' | 'recruiter' | 'college_admin';
+export type UserRole = 'student' | 'recruiter' | 'college_admin' | 'platform_admin';
 
 export interface User {
   id: number;
   email: string;
   full_name: string;
   role: UserRole;
+  approval_status?: 'APPROVED' | 'PENDING' | 'REJECTED';
   college_name?: string;
   company_name?: string;
   avatar_url?: string;

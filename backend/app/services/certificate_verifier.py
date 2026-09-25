@@ -163,6 +163,7 @@ class CertificateVerifier:
             verification_score=verification_score,
             verification_status=status,
             badge_tier=badge_tier,
+            admin_review_status="PENDING_REVIEW" if status in ["FLAGGED", "REJECTED"] else "NONE",
             tamper_analysis_details=tamper_details
         )
         db.add(cert)

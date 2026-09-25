@@ -27,6 +27,34 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export const setAuthToken = (token: string | null) => {
+  if (token) {
+    localStorage.setItem('careerlens_token', token);
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    localStorage.removeItem('careerlens_token');
+    delete api.defaults.headers.common['Authorization'];
+  }
+};
+
+export const extractErrorMessage = (err: any, fallback: string = "An error occurred"): string => {
+  if (!err) return fallback;
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((d: any) => d.msg || (typeof d === 'string' ? d : JSON.stringify(d))).join(', ');
+  }
+  if (detail && typeof detail === 'object') {
+    return detail.msg || detail.message || JSON.stringify(detail);
+  }
+  return err?.response?.data?.message || err?.message || fallback;
+};
+
+const savedToken = localStorage.getItem('careerlens_token');
+if (savedToken) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+}
+
 export const authAPI = {
   login: async (email: string, password: string) => {
     const res = await api.post('/auth/login', { email, password });

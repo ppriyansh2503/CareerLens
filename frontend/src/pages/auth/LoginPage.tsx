@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../lib/authContext";
+import { extractErrorMessage } from "../../lib/api";
 import { ShieldCheck, Mail, Lock, ArrowRight, Sparkles, User, Briefcase, GraduationCap, AlertCircle } from "lucide-react";
 
 export const LoginPage: React.FC = () => {
@@ -18,6 +19,8 @@ export const LoginPage: React.FC = () => {
       navigate("/recruiter/dashboard");
     } else if (role === "college_admin") {
       navigate("/college/dashboard");
+    } else if (role === "platform_admin") {
+      navigate("/admin/dashboard");
     } else {
       navigate("/student/dashboard");
     }
@@ -25,7 +28,8 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !password) {
       setError("Please provide both email and password.");
       return;
     }
@@ -33,10 +37,10 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const userRole = await login(email, password);
+      const userRole = await login(trimmedEmail, password);
       redirectByRole(userRole);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Invalid credentials. Please try again.");
+      setError(extractErrorMessage(err, "Invalid credentials. Please check your email and password."));
     } finally {
       setLoading(false);
     }

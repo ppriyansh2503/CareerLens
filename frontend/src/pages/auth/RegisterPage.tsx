@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../lib/authContext";
+import { extractErrorMessage } from "../../lib/api";
 import { 
   ShieldCheck, 
   Mail, 
@@ -27,8 +28,8 @@ export const RegisterPage: React.FC = () => {
   // Role-specific fields
   const [collegeName, setCollegeName] = useState("");
   const [department, setDepartment] = useState("Computer Science & Engineering");
-  const [graduationYear, setGraduationYear] = useState<number>(2026);
-  const [cgpa, setCgpa] = useState<number>(8.5);
+  const [graduationYear, setGraduationYear] = useState<string>("2026");
+  const [cgpa, setCgpa] = useState<string>("8.5");
   const [companyName, setCompanyName] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -39,22 +40,38 @@ export const RegisterPage: React.FC = () => {
     setError(null);
     setLoading(true);
 
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = fullName.trim();
+    if (!trimmedEmail || !password || !trimmedName) {
+      setError("Please fill out all required fields.");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      setLoading(false);
+      return;
+    }
+
     const payload: any = {
-      full_name: fullName,
-      email,
+      full_name: trimmedName,
+      email: trimmedEmail,
       password,
       role
     };
 
     if (role === "student") {
-      payload.college_name = collegeName || "Delhi Technological University";
-      payload.department = department;
-      payload.graduation_year = Number(graduationYear);
-      payload.cgpa = Number(cgpa);
+      payload.college_name = collegeName.trim() || "Delhi Technological University";
+      payload.department = department.trim() || "Computer Science & Engineering";
+      const parsedGradYear = parseInt(graduationYear, 10);
+      payload.graduation_year = !isNaN(parsedGradYear) ? parsedGradYear : 2026;
+      const parsedCgpa = parseFloat(cgpa);
+      payload.cgpa = !isNaN(parsedCgpa) ? parsedCgpa : 8.0;
     } else if (role === "recruiter") {
-      payload.company_name = companyName || "TechCorp Global";
+      payload.company_name = companyName.trim() || "TechCorp Global";
     } else if (role === "college_admin") {
-      payload.college_name = collegeName || "National Institute of Technology";
+      payload.college_name = collegeName.trim() || "National Institute of Technology";
     }
 
     try {
@@ -63,11 +80,13 @@ export const RegisterPage: React.FC = () => {
         navigate("/recruiter/dashboard");
       } else if (userRole === "college_admin") {
         navigate("/college/dashboard");
+      } else if (userRole === "platform_admin") {
+        navigate("/admin/dashboard");
       } else {
         navigate("/student/dashboard");
       }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Registration failed. Please check inputs and try again.");
+      setError(extractErrorMessage(err, "Registration failed. Please check inputs and try again."));
     } finally {
       setLoading(false);
     }
@@ -233,7 +252,7 @@ export const RegisterPage: React.FC = () => {
                     <input
                       type="number"
                       value={graduationYear}
-                      onChange={(e) => setGraduationYear(Number(e.target.value))}
+                      onChange={(e) => setGraduationYear(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
                       required
                     />
@@ -244,10 +263,11 @@ export const RegisterPage: React.FC = () => {
                       CGPA
                     </label>
                     <input
-                      type="number"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="e.g. 7.6"
                       value={cgpa}
-                      onChange={(e) => setCgpa(Number(e.target.value))}
+                      onChange={(e) => setCgpa(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
                       required
                     />
