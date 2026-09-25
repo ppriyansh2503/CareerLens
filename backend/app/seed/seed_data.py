@@ -6,6 +6,7 @@ from app.models.student import StudentProfile
 from app.models.skill import Skill, StudentSkill
 from app.models.certificate import Certificate
 from app.models.job import Job, JobSkill
+from app.models.audit_log import AuditLog
 from app.services.skill_service import get_or_create_skill
 
 def seed_database_if_empty(db: Session):
@@ -46,6 +47,23 @@ def seed_database_if_empty(db: Session):
     # 2. Check if demo accounts are already seeded
     hashed_pwd = get_password_hash("password123")
 
+    admin_canonical = db.query(User).filter(User.email == "admin@careerlens.io").first()
+    if not admin_canonical:
+        admin_canonical = User(
+            email="admin@careerlens.io",
+            password_hash=hashed_pwd,
+            full_name="CareerLens Admin",
+            role="platform_admin",
+            approval_status="APPROVED"
+        )
+        db.add(admin_canonical)
+        db.commit()
+    else:
+        if admin_canonical.role != "platform_admin" or admin_canonical.approval_status != "APPROVED":
+            admin_canonical.role = "platform_admin"
+            admin_canonical.approval_status = "APPROVED"
+            db.commit()
+
     recruiter_canonical = db.query(User).filter(User.email == "recruiter@careerlens.io").first()
     if not recruiter_canonical:
         db.add(User(
@@ -53,8 +71,12 @@ def seed_database_if_empty(db: Session):
             password_hash=hashed_pwd,
             full_name="Sneha Rao",
             role="recruiter",
-            company_name="TechCorp Global Labs"
+            company_name="TechCorp Global Labs",
+            approval_status="APPROVED"
         ))
+        db.commit()
+    elif recruiter_canonical.approval_status != "APPROVED":
+        recruiter_canonical.approval_status = "APPROVED"
         db.commit()
 
     college_canonical = db.query(User).filter(User.email == "college@careerlens.io").first()
@@ -64,9 +86,66 @@ def seed_database_if_empty(db: Session):
             password_hash=hashed_pwd,
             full_name="Dr. Rajiv Kapoor",
             role="college_admin",
-            college_name="Indian Institute of Information Technology (IIIT)"
+            college_name="Indian Institute of Information Technology (IIIT)",
+            approval_status="APPROVED"
         ))
         db.commit()
+    elif college_canonical.approval_status != "APPROVED":
+        college_canonical.approval_status = "APPROVED"
+        db.commit()
+
+    # Ensure any existing users without approval_status get APPROVED
+    db.query(User).filter(User.approval_status == None).update({"approval_status": "APPROVED"})
+    db.commit()
+
+    # Seed initial system audit log if empty
+    initial_log = db.query(AuditLog).first()
+    if not initial_log and admin_canonical:
+        db.add(AuditLog(
+            admin_id=admin_canonical.id,
+            action="SYSTEM_INIT",
+            target_type="system",
+            target_id=1,
+            target_name="CareerLens Verification Engine",
+            details="4-tier verification and multi-tenant security initialized."
+        ))
+        db.commit()
+
+    # Ensure sample flagged certificate for admin review queue
+    rohan_user = db.query(User).filter(User.email == "rohan@careerlens.io").first()
+    if rohan_user and rohan_user.student_profile:
+        rohan_flagged_cert = db.query(Certificate).filter(
+            Certificate.student_id == rohan_user.student_profile.id,
+            Certificate.verification_status == "FLAGGED"
+        ).first()
+        if not rohan_flagged_cert:
+            db.add(Certificate(
+                student_id=rohan_user.student_profile.id,
+                title="Google Cloud Associate Cloud Engineer (Tampered Submission)",
+                issuing_org="Google Cloud",
+                issue_date="December 12, 2025",
+                credential_id="GCP-ACE-TAMPERED-4412",
+                file_path="/uploads/certificates/sample_tampered_cert.pdf",
+                file_hash_sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855_sample",
+                qr_detected=False,
+                ocr_extracted_text="Certified Cloud Engineer Awarded to Rohan Verma with altered issuing typography",
+                verification_score=24.0,
+                verification_status="FLAGGED",
+                badge_tier="NONE",
+                admin_review_status="PENDING_REVIEW",
+                tamper_analysis_details={
+                    "hash_analysis": {"status": "INTEGRITY_ANOMALY"},
+                    "qr_analysis": {"qr_found": False, "is_trusted_issuer": False},
+                    "ocr_analysis": {"name_found_in_cert": True, "name_match_score": 85.0},
+                    "forensic_analysis": {
+                        "is_tampered": True,
+                        "explanation": "High forensic noise discrepancy detected around recipient name bounding box. PDF producer metadata inconsistent with Google Cloud certification authority.",
+                        "tamper_confidence_score": 88
+                    },
+                    "awarded_skills": []
+                }
+            ))
+            db.commit()
 
     demo_student = db.query(User).filter(User.email == "student@careerlens.io").first()
     if demo_student:

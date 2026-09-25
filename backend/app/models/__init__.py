@@ -5,6 +5,7 @@ from app.models.certificate import Certificate
 from app.models.job import Job, JobSkill
 from app.models.application import Application
 from app.models.chat import ChatSession, ChatMessage
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -17,4 +18,5 @@ __all__ = [
     "Application",
     "ChatSession",
     "ChatMessage",
+    "AuditLog",
 ]
