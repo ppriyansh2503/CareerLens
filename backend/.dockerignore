@@ -9,3 +9,11 @@ __pycache__/
 htmlcov/
 .git
 .gitignore
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
+careerlens.db
+uploads/
+tests/

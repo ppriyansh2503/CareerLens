@@ -1,7 +1,15 @@
 .git
 .gitignore
+.env
+.env.*
 backend/venv
 frontend/node_modules
 frontend/dist
 .pytest_cache
 __pycache__
+*.db
+*.sqlite
+*.sqlite3
+backend/careerlens.db
+backend/uploads
+uploads
