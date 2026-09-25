@@ -74,12 +74,14 @@ def test_admin_certificate_review_flow(tokens):
     assert approve_res.json()["admin_review_status"] == "APPROVED"
 
 def test_recruiter_and_college_approval_flow(tokens):
+    import uuid
     headers = {"Authorization": f"Bearer {tokens['admin']}"}
     
     # 1. Register a new pending recruiter
+    unique_email = f"pending_recruiter_{uuid.uuid4().hex[:8]}@test.com"
     reg_rec = client.post("/api/v1/auth/register", json={
         "full_name": "Pending Recruiter Test",
-        "email": "pending_recruiter@test.com",
+        "email": unique_email,
         "password": "password123",
         "role": "recruiter",
         "company_name": "Pending HR Ltd"
