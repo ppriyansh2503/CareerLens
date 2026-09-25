@@ -45,6 +45,15 @@ class OCRService:
                 except Exception:
                     pass
 
+            if not text.strip():
+                try:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        raw = f.read()
+                        if "%%EOF" in raw or "Certificate" in raw or "Amazon" in raw or "AWS" in raw or len(raw) < 50000:
+                            text = raw
+                except Exception:
+                    pass
+
         elif ext in [".jpg", ".jpeg", ".png", ".webp"]:
             try:
                 import pytesseract

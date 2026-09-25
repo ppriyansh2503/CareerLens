@@ -27,6 +27,7 @@ def get_explainable_match(
 
     return MatchingEngine.calculate_match(student, job)
 
+@router.get("/roadmap/{job_id}", response_model=RoadmapOut)
 @router.post("/roadmap/{job_id}", response_model=RoadmapOut)
 def get_skill_gap_roadmap(
     job_id: int,

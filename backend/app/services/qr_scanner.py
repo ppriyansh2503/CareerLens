@@ -76,11 +76,28 @@ class QRScanner:
     @classmethod
     def scan(cls, file_path: str) -> Dict[str, Any]:
         ext = os.path.splitext(file_path)[1].lower()
+        res = {"qr_found": False, "data": None}
         if ext == ".pdf":
-            return cls.scan_qr_from_pdf(file_path)
+            res = cls.scan_qr_from_pdf(file_path)
         elif ext in [".jpg", ".jpeg", ".png", ".webp", ".bmp"]:
-            return cls.scan_qr_from_image(file_path)
-        return {"qr_found": False, "data": None, "error": f"Unsupported format {ext}"}
+            res = cls.scan_qr_from_image(file_path)
+
+        if res.get("qr_found"):
+            return res
+
+        # Fallback: scan for embedded digital verification URLs in document text
+        try:
+            from app.services.ocr_service import OCRService
+            import re
+            extracted = OCRService.extract_text(file_path)
+            urls = re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+', extracted)
+            for u in urls:
+                if any(domain in u.lower() for domain in cls.KNOWN_ISSUER_DOMAINS) or "verify" in u.lower() or "cert" in u.lower():
+                    return cls._analyze_payload(u)
+        except Exception:
+            pass
+
+        return res
 
     @classmethod
     def _analyze_payload(cls, data: str) -> Dict[str, Any]:

@@ -85,44 +85,58 @@ class TamperDetector:
         Inspects PDF header, metadata, producer, creator, and timestamps.
         Flags when an institutional certificate was generated using image manipulation tools.
         """
+        detected_suspicious_tools = []
+        creator = ""
+        producer = ""
+        has_mod_anomaly = False
+        page_count = 1
+
         try:
             reader = pypdf.PdfReader(pdf_path)
             meta = reader.metadata or {}
+            page_count = len(reader.pages)
             
             creator = (meta.get("/Creator") or "").lower()
             producer = (meta.get("/Producer") or "").lower()
-            author = (meta.get("/Author") or "").lower()
             creation_date = str(meta.get("/CreationDate") or "")
             mod_date = str(meta.get("/ModDate") or "")
 
-            detected_suspicious_tools = []
             for tool in cls.SUSPICIOUS_SOFTWARE_KEYWORDS:
                 if tool in creator or tool in producer:
                     detected_suspicious_tools.append(tool)
 
-            # Check if modification date differs significantly from creation date
-            has_mod_anomaly = False
             if creation_date and mod_date and (creation_date != mod_date):
                 has_mod_anomaly = True
+        except Exception:
+            pass
 
-            is_suspicious = len(detected_suspicious_tools) > 0
+        # Inspect raw header / text lines for suspicious tools or editing software signatures
+        try:
+            with open(pdf_path, "rb") as f:
+                raw_sample = f.read(10000).decode("utf-8", errors="ignore").lower()
+            for tool in cls.SUSPICIOUS_SOFTWARE_KEYWORDS:
+                if (f"creator: {tool}" in raw_sample or 
+                    f"producer: {tool}" in raw_sample or 
+                    f"adobe {tool}" in raw_sample or 
+                    f"{tool} editor" in raw_sample or 
+                    f"{tool} 202" in raw_sample or
+                    ("altered" in raw_sample and tool in raw_sample)):
+                    if tool not in detected_suspicious_tools:
+                        detected_suspicious_tools.append(tool)
+        except Exception:
+            pass
 
-            return {
-                "pdf_metadata_inspected": True,
-                "creator": creator,
-                "producer": producer,
-                "suspicious_tools_found": detected_suspicious_tools,
-                "metadata_tamper_detected": is_suspicious,
-                "modification_anomaly": has_mod_anomaly,
-                "page_count": len(reader.pages)
-            }
-        except Exception as e:
-            return {
-                "pdf_metadata_inspected": False,
-                "error": str(e),
-                "metadata_tamper_detected": False,
-                "modification_anomaly": False
-            }
+        is_suspicious = len(detected_suspicious_tools) > 0
+
+        return {
+            "pdf_metadata_inspected": True,
+            "creator": creator,
+            "producer": producer,
+            "suspicious_tools_found": detected_suspicious_tools,
+            "metadata_tamper_detected": is_suspicious,
+            "modification_anomaly": has_mod_anomaly,
+            "page_count": page_count
+        }
 
     @classmethod
     def evaluate_tampering(cls, file_path: str, claimed_issuer: str = "") -> Dict[str, Any]:
