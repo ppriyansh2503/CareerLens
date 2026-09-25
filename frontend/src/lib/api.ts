@@ -118,7 +118,7 @@ export const authAPI = {
     const res = await api.get('/auth/me');
     return res.data;
   },
-  demoSwitch: async (role: 'student' | 'recruiter' | 'college_admin') => {
+  demoSwitch: async (role: 'student' | 'recruiter' | 'college_admin' | 'platform_admin') => {
     const res = await api.post(`/auth/demo-switch/${role}`);
     return res.data;
   }

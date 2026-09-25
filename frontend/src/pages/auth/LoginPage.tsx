@@ -63,8 +63,8 @@ export const LoginPage: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      const userRole = await login("admin@careerlens.io", "password123");
-      redirectByRole(userRole);
+      await switchRole("platform_admin");
+      redirectByRole("platform_admin");
     } catch (err: any) {
       setError(extractErrorMessage(err, "Failed to authenticate as Platform Admin."));
     } finally {

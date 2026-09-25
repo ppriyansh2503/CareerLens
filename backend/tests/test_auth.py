@@ -45,7 +45,7 @@ def test_bilingual_chat():
     assert data["sender"] == "assistant"
     assert len(data["content"]) > 10
 
-def test_student_registration_approval_and_login():
+def test_student_registration_approval_and_login(admin_credentials):
     import uuid
     uid = uuid.uuid4().hex[:6]
     test_email = f"rohan_{uid}@careerlens.io"
@@ -72,7 +72,7 @@ def test_student_registration_approval_and_login():
     assert "pending administrator approval" in login_fail.json()["detail"].lower()
 
     # 3. Platform Admin logs in and approves student
-    admin_login = client.post("/api/v1/auth/login", json={"email": "admin@careerlens.io", "password": "password123"})
+    admin_login = client.post("/api/v1/auth/login", json=admin_credentials)
     assert admin_login.status_code == 200
     admin_token = admin_login.json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
@@ -114,7 +114,7 @@ def test_student_registration_approval_and_login():
     assert prof["graduation_year"] == 2027
     assert prof["cgpa"] == 8.85
 
-def test_student_registration_rejection():
+def test_student_registration_rejection(admin_credentials):
     import uuid
     uid = uuid.uuid4().hex[:6]
     test_email = f"priya_{uid}@careerlens.io"
@@ -130,7 +130,7 @@ def test_student_registration_rejection():
     student_id = res.json()["user_id"]
 
     # 2. Admin rejects student with reason
-    admin_login = client.post("/api/v1/auth/login", json={"email": "admin@careerlens.io", "password": "password123"})
+    admin_login = client.post("/api/v1/auth/login", json=admin_credentials)
     admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
 
     # Rejection without reason fails (400)
@@ -155,7 +155,7 @@ def test_student_registration_rejection():
     assert login_res.status_code == 403
     assert "account has been rejected" in login_res.json()["detail"].lower()
 
-def test_recruiter_registration():
+def test_recruiter_registration(admin_credentials):
     import uuid
     uid = uuid.uuid4().hex[:6]
     test_email = f"recruiter_{uid}@apex.com"
@@ -176,7 +176,7 @@ def test_recruiter_registration():
     assert login_fail.status_code == 403
 
     # Admin approves recruiter
-    admin_login = client.post("/api/v1/auth/login", json={"email": "admin@careerlens.io", "password": "password123"})
+    admin_login = client.post("/api/v1/auth/login", json=admin_credentials)
     admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
     approve_res = client.post(
         f"/api/v1/admin/approvals/recruiters/{recruiter_id}",
@@ -212,7 +212,7 @@ def test_cross_role_access_rejection():
     assert college_res.status_code == 403
     assert "college" in college_res.json()["detail"].lower()
 
-def test_canonical_accounts_login_and_me():
+def test_canonical_accounts_login_and_me(admin_credentials):
     """
     Regression test ensuring all 4 canonical accounts can authenticate,
     receive valid JWTs, and fetch their profile without HTTP 500 errors.
@@ -221,7 +221,7 @@ def test_canonical_accounts_login_and_me():
         ("student@careerlens.io", "password123", "student"),
         ("recruiter@careerlens.io", "password123", "recruiter"),
         ("college@careerlens.io", "password123", "college_admin"),
-        ("admin@careerlens.io", "password123", "platform_admin"),
+        (admin_credentials["email"], admin_credentials["password"], "platform_admin"),
     ]
 
     for email, password, expected_role in canonical_accounts:
@@ -255,5 +255,10 @@ def test_login_invalid_credentials_returns_401():
     res_unknown = client.post("/api/v1/auth/login", json={"email": "nonexistent_user@careerlens.io", "password": "password123"})
     assert res_unknown.status_code == 401
     assert "incorrect email or password" in res_unknown.json()["detail"].lower()
+
+    # Old admin email must return 401
+    res_old_admin = client.post("/api/v1/auth/login", json={"email": "admin@careerlens.io", "password": "password123"})
+    assert res_old_admin.status_code == 401
+    assert "incorrect email or password" in res_old_admin.json()["detail"].lower()
 
 

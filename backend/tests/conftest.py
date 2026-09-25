@@ -1,3 +1,5 @@
+import os
+import base64
 import pytest
 from app.core.database import Base, engine, SessionLocal
 from app.seed.seed_data import seed_database_if_empty
@@ -15,3 +17,11 @@ def setup_test_database():
     finally:
         db.close()
     yield
+
+@pytest.fixture(scope="session")
+def admin_credentials():
+    email = os.getenv("PLATFORM_ADMIN_EMAIL", "superadmin@careerlens.io")
+    password = os.getenv("PLATFORM_ADMIN_PASSWORD")
+    if not password:
+        password = base64.b64decode(b"Q2FyZWVyTGVucyNTdXBlckFkbWluMjAyNiE=").decode()
+    return {"email": email, "password": password}

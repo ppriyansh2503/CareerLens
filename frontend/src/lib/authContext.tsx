@@ -11,7 +11,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<UserRole>;
   register: (userData: any) => Promise<any>;
   logout: () => void;
-  switchRole: (role: 'student' | 'recruiter' | 'college_admin') => Promise<void>;
+  switchRole: (role: 'student' | 'recruiter' | 'college_admin' | 'platform_admin') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRole(null);
   };
 
-  const switchRole = async (targetRole: 'student' | 'recruiter' | 'college_admin') => {
+  const switchRole = async (targetRole: 'student' | 'recruiter' | 'college_admin' | 'platform_admin') => {
     setIsLoading(true);
     try {
       const data = await authAPI.demoSwitch(targetRole);

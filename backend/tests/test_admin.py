@@ -9,12 +9,12 @@ from app.core.security import get_password_hash
 client = TestClient(app)
 
 @pytest.fixture(scope="module")
-def tokens():
+def tokens(admin_credentials):
     # Login as student, recruiter, college_admin, admin
     student_res = client.post("/api/v1/auth/login", json={"email": "student@careerlens.io", "password": "password123"})
     recruiter_res = client.post("/api/v1/auth/login", json={"email": "recruiter@careerlens.io", "password": "password123"})
     college_res = client.post("/api/v1/auth/login", json={"email": "college@careerlens.io", "password": "password123"})
-    admin_res = client.post("/api/v1/auth/login", json={"email": "admin@careerlens.io", "password": "password123"})
+    admin_res = client.post("/api/v1/auth/login", json=admin_credentials)
 
     return {
         "student": student_res.json()["access_token"],
@@ -166,3 +166,33 @@ def test_audit_logs_retrieval(tokens):
     logs = res.json()
     assert len(logs) > 0
     assert any(log["action"] in ["APPROVE_CERTIFICATE", "APPROVE_RECRUITER", "APPROVE_COLLEGE", "SYSTEM_INIT"] for log in logs)
+
+def test_admin_credential_rotation(admin_credentials):
+    # 1. Old admin credentials must fail
+    res_old = client.post("/api/v1/auth/login", json={"email": "admin@careerlens.io", "password": "password123"})
+    assert res_old.status_code == 401, "Old admin email must not work"
+
+    res_old_mix = client.post("/api/v1/auth/login", json={"email": "admin@careerlens.io", "password": admin_credentials["password"]})
+    assert res_old_mix.status_code == 401
+
+    res_new_bad_pwd = client.post("/api/v1/auth/login", json={"email": admin_credentials["email"], "password": "password123"})
+    assert res_new_bad_pwd.status_code == 401
+
+    # 2. New credentials must succeed
+    res_new = client.post("/api/v1/auth/login", json=admin_credentials)
+    assert res_new.status_code == 200
+    new_data = res_new.json()
+    assert new_data["role"] == "platform_admin"
+    assert new_data["approval_status"] == "APPROVED"
+    assert "access_token" in new_data
+    token = new_data["access_token"]
+
+    # 3. New token can access admin protected endpoints
+    res_stats = client.get("/api/v1/admin/stats", headers={"Authorization": f"Bearer {token}"})
+    assert res_stats.status_code == 200
+    assert "total_users" in res_stats.json()
+
+    # 4. Demo switcher for platform_admin works
+    res_demo = client.post("/api/v1/auth/demo-switch/platform_admin")
+    assert res_demo.status_code == 200
+    assert res_demo.json()["role"] == "platform_admin"

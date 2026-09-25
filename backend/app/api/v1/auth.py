@@ -106,8 +106,8 @@ def demo_switch_account(role: str, db: Session = Depends(get_db)):
     Hackathon Demo Switcher: Instantly logs in as sample Student, Recruiter, or College Admin.
     """
     role = role.lower()
-    if role not in ["student", "recruiter", "college_admin"]:
-        raise HTTPException(status_code=400, detail="Invalid demo role. Choose student, recruiter, or college_admin.")
+    if role not in ["student", "recruiter", "college_admin", "platform_admin"]:
+        raise HTTPException(status_code=400, detail="Invalid demo role. Choose student, recruiter, college_admin, or platform_admin.")
 
     user = db.query(User).filter(User.role == role).first()
     if not user:

@@ -28,9 +28,17 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
+    # Platform Admin Credentials
+    PLATFORM_ADMIN_EMAIL: str = os.getenv("PLATFORM_ADMIN_EMAIL", "superadmin@careerlens.io")
+    PLATFORM_ADMIN_PASSWORD_HASH: str = os.getenv(
+        "PLATFORM_ADMIN_PASSWORD_HASH",
+        "$2b$12$t1KNRZXpn4DBrS6GcEf3Iu/ovGLrMcLL28sJxLOCkdbRGy6cZwHdG"
+    )
+
     class Config:
         case_sensitive = True
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()
 

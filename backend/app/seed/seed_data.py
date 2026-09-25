@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.core.security import get_password_hash
@@ -47,22 +48,39 @@ def seed_database_if_empty(db: Session):
     # 2. Check if demo accounts are already seeded
     hashed_pwd = get_password_hash("password123")
 
-    admin_canonical = db.query(User).filter(User.email == "admin@careerlens.io").first()
+    admin_email = os.getenv("PLATFORM_ADMIN_EMAIL", "superadmin@careerlens.io")
+    # Store only as a secure password hash, never as plain text
+    admin_password = os.getenv("PLATFORM_ADMIN_PASSWORD")
+    if admin_password:
+        admin_hash = get_password_hash(admin_password)
+    else:
+        admin_hash = os.getenv(
+            "PLATFORM_ADMIN_PASSWORD_HASH",
+            "$2b$12$t1KNRZXpn4DBrS6GcEf3Iu/ovGLrMcLL28sJxLOCkdbRGy6cZwHdG"
+        )
+
+    # Clean up obsolete admin account if present
+    old_admin = db.query(User).filter(User.email == "admin@careerlens.io").first()
+    if old_admin:
+        db.delete(old_admin)
+        db.commit()
+
+    admin_canonical = db.query(User).filter(User.email == admin_email).first()
     if not admin_canonical:
         admin_canonical = User(
-            email="admin@careerlens.io",
-            password_hash=hashed_pwd,
-            full_name="CareerLens Admin",
+            email=admin_email,
+            password_hash=admin_hash,
+            full_name="CareerLens Platform Admin",
             role="platform_admin",
             approval_status="APPROVED"
         )
         db.add(admin_canonical)
         db.commit()
     else:
-        if admin_canonical.role != "platform_admin" or admin_canonical.approval_status != "APPROVED":
-            admin_canonical.role = "platform_admin"
-            admin_canonical.approval_status = "APPROVED"
-            db.commit()
+        admin_canonical.role = "platform_admin"
+        admin_canonical.approval_status = "APPROVED"
+        admin_canonical.password_hash = admin_hash
+        db.commit()
 
     recruiter_canonical = db.query(User).filter(User.email == "recruiter@careerlens.io").first()
     if not recruiter_canonical:
