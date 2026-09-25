@@ -21,8 +21,8 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
     if role not in ["student", "recruiter", "college_admin", "platform_admin"]:
         role = "student"
 
-    # Students and Platform Admins are auto-approved; recruiters and colleges start in PENDING
-    approval_status = "APPROVED" if role in ["student", "platform_admin"] else "PENDING"
+    # All newly registered users start in PENDING status until approved by platform admin
+    approval_status = "PENDING"
 
     user = User(
         email=email,
@@ -69,6 +69,20 @@ def login(login_in: UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect email or password"
         )
     
+    # Platform Admin is permanently APPROVED. Non-admin accounts require admin approval.
+    if user.role != "platform_admin":
+        curr_status = getattr(user, "approval_status", "APPROVED") or "APPROVED"
+        if curr_status == "REJECTED":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account has been rejected. Contact the administrator."
+            )
+        elif curr_status == "PENDING":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account is pending administrator approval."
+            )
+
     role = user.role or "student"
     full_name = user.full_name or email.split("@")[0].capitalize()
     approval_status = getattr(user, "approval_status", "APPROVED") or "APPROVED"

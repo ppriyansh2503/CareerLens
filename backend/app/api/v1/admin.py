@@ -48,6 +48,11 @@ def get_platform_stats(
     verified_certs = db.query(Certificate).filter(Certificate.verification_status == "VERIFIED").count()
     flagged_certs = db.query(Certificate).filter(Certificate.verification_status == "FLAGGED").count()
 
+    pending_students = db.query(User).filter(
+        User.role == "student",
+        User.approval_status == "PENDING"
+    ).count()
+
     pending_recruiters = db.query(User).filter(
         User.role == "recruiter",
         User.approval_status == "PENDING"
@@ -69,6 +74,7 @@ def get_platform_stats(
         "pending_certificates_count": pending_certs,
         "verified_certificates_count": verified_certs,
         "flagged_certificates_count": flagged_certs,
+        "pending_students_count": pending_students,
         "pending_recruiters_count": pending_recruiters,
         "pending_colleges_count": pending_colleges,
         "audit_logs_count": audit_logs_count
@@ -235,6 +241,74 @@ def review_certificate(
             "admin_review_reason": cert.admin_review_reason
         }
 
+@router.get("/approvals/students", response_model=List[UserApprovalItem])
+def list_students_for_approval(
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Lists students and their approval statuses.
+    """
+    students = db.query(User).filter(User.role == "student").order_by(desc(User.created_at)).all()
+    results = []
+    for u in students:
+        prof = u.student_profile
+        results.append(UserApprovalItem(
+            id=u.id,
+            email=u.email,
+            full_name=u.full_name,
+            role=u.role,
+            approval_status=u.approval_status or "PENDING",
+            college_name=u.college_name,
+            department=prof.department if prof else None,
+            graduation_year=prof.graduation_year if prof else None,
+            cgpa=prof.cgpa if prof else None,
+            created_at=u.created_at
+        ))
+    return results
+
+@router.post("/approvals/students/{user_id}")
+def review_student(
+    user_id: int,
+    action_in: UserApprovalAction,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Approves or rejects a student account.
+    """
+    student = db.query(User).filter(User.id == user_id, User.role == "student").first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    action = action_in.action.upper().strip()
+    if action not in ["APPROVE", "REJECT"]:
+        raise HTTPException(status_code=400, detail="Action must be APPROVE or REJECT")
+
+    reason = (action_in.reason or "").strip()
+    if action == "REJECT" and not reason:
+        raise HTTPException(status_code=400, detail="Rejection reason is required")
+
+    new_status = "APPROVED" if action == "APPROVE" else "REJECTED"
+    student.approval_status = new_status
+    db.commit()
+
+    db.add(AuditLog(
+        admin_id=current_admin.id,
+        action=f"{action}_STUDENT",
+        target_type="student",
+        target_id=student.id,
+        target_name=student.full_name,
+        details=reason or f"Student account {action.lower()}ed by platform admin."
+    ))
+    db.commit()
+
+    return {
+        "message": f"Student {action.lower()}ed successfully",
+        "user_id": student.id,
+        "approval_status": student.approval_status
+    }
+
 @router.get("/approvals/recruiters", response_model=List[UserApprovalItem])
 def list_recruiters_for_approval(
     current_admin: User = Depends(get_current_admin),
@@ -275,6 +349,10 @@ def review_recruiter(
     if action not in ["APPROVE", "REJECT"]:
         raise HTTPException(status_code=400, detail="Action must be APPROVE or REJECT")
 
+    reason = (action_in.reason or "").strip()
+    if action == "REJECT" and not reason:
+        raise HTTPException(status_code=400, detail="Rejection reason is required")
+
     new_status = "APPROVED" if action == "APPROVE" else "REJECTED"
     recruiter.approval_status = new_status
     db.commit()
@@ -285,7 +363,7 @@ def review_recruiter(
         target_type="recruiter",
         target_id=recruiter.id,
         target_name=recruiter.company_name or recruiter.full_name,
-        details=action_in.reason or f"Recruiter {action.lower()}ed by platform admin."
+        details=reason or f"Recruiter {action.lower()}ed by platform admin."
     ))
     db.commit()
 
@@ -335,6 +413,10 @@ def review_college(
     if action not in ["APPROVE", "REJECT"]:
         raise HTTPException(status_code=400, detail="Action must be APPROVE or REJECT")
 
+    reason = (action_in.reason or "").strip()
+    if action == "REJECT" and not reason:
+        raise HTTPException(status_code=400, detail="Rejection reason is required")
+
     new_status = "APPROVED" if action == "APPROVE" else "REJECTED"
     college.approval_status = new_status
     db.commit()
@@ -345,7 +427,7 @@ def review_college(
         target_type="college",
         target_id=college.id,
         target_name=college.college_name or college.full_name,
-        details=action_in.reason or f"College {action.lower()}ed by platform admin."
+        details=reason or f"College {action.lower()}ed by platform admin."
     ))
     db.commit()
 

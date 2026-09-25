@@ -45,6 +45,9 @@ def test_admin_stats(tokens):
     assert "pending_certificates_count" in data
     assert "verified_certificates_count" in data
     assert "flagged_certificates_count" in data
+    assert "pending_students_count" in data
+    assert "pending_recruiters_count" in data
+    assert "pending_colleges_count" in data
     assert data["total_users"] > 0
 
 def test_admin_certificate_review_flow(tokens):
@@ -125,10 +128,41 @@ def test_recruiter_and_college_approval_flow(tokens):
     })
     assert job_post_ok.status_code == 200
 
+    # 2. Register a new pending college
+    col_email = f"pending_college_{uuid.uuid4().hex[:8]}@test.edu"
+    reg_col = client.post("/api/v1/auth/register", json={
+        "full_name": "Dean Placement",
+        "email": col_email,
+        "password": "password123",
+        "role": "college_admin",
+        "college_name": "National Engineering Institute"
+    })
+    assert reg_col.status_code == 200
+    col_user_id = reg_col.json()["user_id"]
+    assert reg_col.json()["approval_status"] == "PENDING"
+
+    # Pending college cannot login
+    col_login_fail = client.post("/api/v1/auth/login", json={"email": col_email, "password": "password123"})
+    assert col_login_fail.status_code == 403
+
+    # Admin approves college
+    approve_col = client.post(
+        f"/api/v1/admin/approvals/colleges/{col_user_id}",
+        headers=headers,
+        json={"action": "APPROVE", "reason": "Institutional affiliation and UGC accreditation verified"}
+    )
+    assert approve_col.status_code == 200
+    assert approve_col.json()["approval_status"] == "APPROVED"
+
+    # College can now log in
+    col_login_ok = client.post("/api/v1/auth/login", json={"email": col_email, "password": "password123"})
+    assert col_login_ok.status_code == 200
+    assert col_login_ok.json()["approval_status"] == "APPROVED"
+
 def test_audit_logs_retrieval(tokens):
     headers = {"Authorization": f"Bearer {tokens['admin']}"}
     res = client.get("/api/v1/admin/audit-logs", headers=headers)
     assert res.status_code == 200
     logs = res.json()
     assert len(logs) > 0
-    assert any(log["action"] in ["APPROVE_CERTIFICATE", "APPROVE_RECRUITER", "SYSTEM_INIT"] for log in logs)
+    assert any(log["action"] in ["APPROVE_CERTIFICATE", "APPROVE_RECRUITER", "APPROVE_COLLEGE", "SYSTEM_INIT"] for log in logs)

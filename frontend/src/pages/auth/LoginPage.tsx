@@ -59,6 +59,19 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const handleAdminPreset = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const userRole = await login("admin@careerlens.io", "password123");
+      redirectByRole(userRole);
+    } catch (err: any) {
+      setError(extractErrorMessage(err, "Failed to authenticate as Platform Admin."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12 relative overflow-hidden">
       {/* Background Glow */}
@@ -90,7 +103,7 @@ export const LoginPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
               disabled={loading}
@@ -99,7 +112,7 @@ export const LoginPage: React.FC = () => {
             >
               <div className="text-sm mb-1">👨‍🎓</div>
               <div className="text-[11px] font-bold text-white group-hover:text-amber-300 truncate">
-                Aarav Sharma
+                Aarav
               </div>
               <div className="text-[9px] text-slate-400 uppercase font-mono">Student</div>
             </button>
@@ -112,7 +125,7 @@ export const LoginPage: React.FC = () => {
             >
               <div className="text-sm mb-1">💼</div>
               <div className="text-[11px] font-bold text-white group-hover:text-indigo-300 truncate">
-                Sneha Rao
+                Sneha
               </div>
               <div className="text-[9px] text-slate-400 uppercase font-mono">Recruiter</div>
             </button>
@@ -129,15 +142,50 @@ export const LoginPage: React.FC = () => {
               </div>
               <div className="text-[9px] text-slate-400 uppercase font-mono">College TPO</div>
             </button>
+
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleAdminPreset}
+              className="p-2.5 rounded-xl bg-slate-800/90 border border-purple-500/30 hover:border-purple-400 text-left transition-colors flex flex-col justify-between group"
+            >
+              <div className="text-sm mb-1">🛡️</div>
+              <div className="text-[11px] font-bold text-white group-hover:text-purple-300 truncate">
+                Admin
+              </div>
+              <div className="text-[9px] text-slate-400 uppercase font-mono">Admin</div>
+            </button>
           </div>
         </div>
 
         {/* Login Form */}
         <div className="p-6 sm:p-8 rounded-3xl bg-slate-800/50 border border-slate-700/80 shadow-2xl space-y-5">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-              <AlertCircle size={15} className="text-rose-400 shrink-0" />
-              <span>{error}</span>
+            <div
+              className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+                error.toLowerCase().includes("pending")
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
+                  : error.toLowerCase().includes("rejected")
+                  ? "bg-rose-500/10 border-rose-500/30 text-rose-200"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+              }`}
+            >
+              <AlertCircle
+                size={16}
+                className={`shrink-0 mt-0.5 ${
+                  error.toLowerCase().includes("pending") ? "text-amber-400" : "text-rose-400"
+                }`}
+              />
+              <div className="space-y-0.5">
+                <div className="font-semibold">
+                  {error.toLowerCase().includes("pending")
+                    ? "Approval Pending"
+                    : error.toLowerCase().includes("rejected")
+                    ? "Account Rejected"
+                    : "Sign In Failed"}
+                </div>
+                <div className="leading-relaxed">{error}</div>
+              </div>
             </div>
           )}
 

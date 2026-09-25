@@ -225,6 +225,7 @@ export interface PlatformStats {
   pending_certificates_count: number;
   verified_certificates_count: number;
   flagged_certificates_count: number;
+  pending_students_count: number;
   pending_recruiters_count: number;
   pending_colleges_count: number;
   audit_logs_count: number;
@@ -260,6 +261,9 @@ export interface UserApprovalItem {
   approval_status: 'APPROVED' | 'PENDING' | 'REJECTED';
   college_name?: string;
   company_name?: string;
+  department?: string;
+  graduation_year?: number;
+  cgpa?: number;
   created_at: string;
 }
 

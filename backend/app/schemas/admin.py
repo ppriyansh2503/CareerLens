@@ -11,6 +11,7 @@ class PlatformStats(BaseModel):
     pending_certificates_count: int
     verified_certificates_count: int
     flagged_certificates_count: int
+    pending_students_count: int = 0
     pending_recruiters_count: int
     pending_colleges_count: int
     audit_logs_count: int
@@ -48,6 +49,9 @@ class UserApprovalItem(BaseModel):
     approval_status: str
     college_name: Optional[str] = None
     company_name: Optional[str] = None
+    department: Optional[str] = None
+    graduation_year: Optional[int] = None
+    cgpa: Optional[float] = None
     created_at: datetime
 
 class UserApprovalAction(BaseModel):

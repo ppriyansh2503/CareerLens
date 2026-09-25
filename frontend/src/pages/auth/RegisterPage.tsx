@@ -13,7 +13,9 @@ import {
   Calendar, 
   Award,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  CheckCircle2
 } from "lucide-react";
 
 export const RegisterPage: React.FC = () => {
@@ -34,6 +36,7 @@ export const RegisterPage: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRegistered, setIsRegistered] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,15 +78,19 @@ export const RegisterPage: React.FC = () => {
     }
 
     try {
-      const userRole = await register(payload);
-      if (userRole === "recruiter") {
-        navigate("/recruiter/dashboard");
-      } else if (userRole === "college_admin") {
-        navigate("/college/dashboard");
-      } else if (userRole === "platform_admin") {
-        navigate("/admin/dashboard");
+      const resp = await register(payload);
+      if (resp?.approval_status === "APPROVED") {
+        if (resp.role === "recruiter") {
+          navigate("/recruiter/dashboard");
+        } else if (resp.role === "college_admin") {
+          navigate("/college/dashboard");
+        } else if (resp.role === "platform_admin") {
+          navigate("/admin/dashboard");
+        } else {
+          navigate("/student/dashboard");
+        }
       } else {
-        navigate("/student/dashboard");
+        setIsRegistered(true);
       }
     } catch (err: any) {
       setError(extractErrorMessage(err, "Registration failed. Please check inputs and try again."));
@@ -153,180 +160,218 @@ export const RegisterPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Register Form */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-slate-800/50 border border-slate-700/80 shadow-2xl space-y-5">
-          {error && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-              <AlertCircle size={15} className="text-rose-400 shrink-0" />
-              <span>{error}</span>
+        {isRegistered ? (
+          <div className="p-6 sm:p-8 rounded-3xl bg-slate-800/50 border border-slate-700/80 shadow-2xl text-center space-y-5 animate-in fade-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/10">
+              <Clock className="w-8 h-8 animate-pulse" />
             </div>
-          )}
+            
+            <div className="space-y-2">
+              <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Pending Administrator Approval
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Registration Submitted</h2>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-sm mx-auto leading-relaxed">
+                Registration successful. Your account is pending administrator approval. You will be able to access CareerLens after administrator approval.
+              </p>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Full Legal Name
-              </label>
-              <div className="relative">
-                <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="e.g. Priya Sharma"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-                  required
-                />
+            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-700/70 text-left space-y-2 text-xs">
+              <div className="text-slate-400 text-[11px] font-medium">Submitted Profile:</div>
+              <div className="text-white font-semibold flex items-center justify-between">
+                <span>{fullName}</span>
+                <span className="text-[10px] font-mono uppercase bg-slate-800 px-2 py-0.5 rounded text-indigo-300 border border-slate-700">
+                  {role === "student" ? "Student" : (role === "recruiter" ? "Recruiter" : "College TPO")}
+                </span>
               </div>
+              <div className="text-slate-400 font-mono text-[11px]">{email}</div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
-                  placeholder="priya@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-                  required
-                />
+            <div className="pt-2">
+              <Link
+                to="/login"
+                className="w-full py-3 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
+              >
+                <span>Return to Sign In</span>
+                <ArrowRight size={15} />
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 sm:p-8 rounded-3xl bg-slate-800/50 border border-slate-700/80 shadow-2xl space-y-5">
+            {error && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle size={15} className="text-rose-400 shrink-0" />
+                <span>{error}</span>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="password"
-                  placeholder="Minimum 6 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-                  required
-                />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Full Legal Name
+                </label>
+                <div className="relative">
+                  <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Priya Sharma"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Student Specific Fields */}
-            {role === "student" && (
-              <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="email"
+                    placeholder="priya@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="password"
+                    placeholder="Minimum 6 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Student Specific Fields */}
+              {role === "student" && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      College / University Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. IIIT Delhi, DTU, NIT Trichy"
+                      value={collegeName}
+                      onChange={(e) => setCollegeName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                        Department
+                      </label>
+                      <input
+                        type="text"
+                        value={department}
+                        onChange={(e) => setDepartment(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                        Grad Year
+                      </label>
+                      <input
+                        type="number"
+                        value={graduationYear}
+                        onChange={(e) => setGraduationYear(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                        CGPA
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="e.g. 7.6"
+                        value={cgpa}
+                        onChange={(e) => setCgpa(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Recruiter Specific Fields */}
+              {role === "recruiter" && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    College / University Name
+                    Hiring Company Name
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. IIIT Delhi, DTU, NIT Trichy"
+                    placeholder="e.g. Google, TechCorp, Microsoft"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* College Admin Specific Fields */}
+              {role === "college_admin" && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Institution / University Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Indian Institute of Information Technology"
                     value={collegeName}
                     onChange={(e) => setCollegeName(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
+              )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Department
-                    </label>
-                    <input
-                      type="text"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
-                      required
-                    />
-                  </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 mt-2"
+              >
+                <span>{loading ? "Creating Account..." : `Register as ${role === "student" ? "Student" : (role === "recruiter" ? "Recruiter" : "College TPO")}`}</span>
+                <ArrowRight size={15} />
+              </button>
+            </form>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Grad Year
-                    </label>
-                    <input
-                      type="number"
-                      value={graduationYear}
-                      onChange={(e) => setGraduationYear(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      CGPA
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="e.g. 7.6"
-                      value={cgpa}
-                      onChange={(e) => setCgpa(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
-                      required
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Recruiter Specific Fields */}
-            {role === "recruiter" && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Hiring Company Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Google, TechCorp, Microsoft"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-            )}
-
-            {/* College Admin Specific Fields */}
-            {role === "college_admin" && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Institution / University Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Indian Institute of Information Technology"
-                  value={collegeName}
-                  onChange={(e) => setCollegeName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 mt-2"
-            >
-              <span>{loading ? "Creating Account..." : `Register as ${role === "student" ? "Student" : (role === "recruiter" ? "Recruiter" : "College TPO")}`}</span>
-              <ArrowRight size={15} />
-            </button>
-          </form>
-
-          <div className="pt-4 border-t border-slate-700/60 text-center text-xs text-slate-400">
-            Already have an account?{" "}
-            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold underline underline-offset-2">
-              Sign In
-            </Link>
+            <div className="pt-4 border-t border-slate-700/60 text-center text-xs text-slate-400">
+              Already have an account?{" "}
+              <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold underline underline-offset-2">
+                Sign In
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>

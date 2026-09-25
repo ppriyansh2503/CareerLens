@@ -65,6 +65,11 @@ def get_current_student(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires student privileges",
         )
+    if getattr(current_user, "approval_status", "APPROVED") != "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is pending administrator approval.",
+        )
     return current_user
 
 def get_current_recruiter(
@@ -76,6 +81,11 @@ def get_current_recruiter(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires recruiter privileges",
         )
+    if getattr(current_user, "approval_status", "APPROVED") != "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your recruiter account is pending administrator approval.",
+        )
     return current_user
 
 def get_current_college_admin(
@@ -86,6 +96,11 @@ def get_current_college_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires college admin privileges",
+        )
+    if getattr(current_user, "approval_status", "APPROVED") != "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your college admin account is pending administrator approval.",
         )
     return current_user
 

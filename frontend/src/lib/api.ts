@@ -243,6 +243,14 @@ export const adminAPI = {
     const res = await api.post(`/admin/certificates/${certId}/review`, { action, reason });
     return res.data;
   },
+  listStudents: async (): Promise<UserApprovalItem[]> => {
+    const res = await api.get('/admin/approvals/students');
+    return res.data;
+  },
+  reviewStudent: async (userId: number, action: 'APPROVE' | 'REJECT', reason?: string) => {
+    const res = await api.post(`/admin/approvals/students/${userId}`, { action, reason });
+    return res.data;
+  },
   listRecruiters: async (): Promise<UserApprovalItem[]> => {
     const res = await api.get('/admin/approvals/recruiters');
     return res.data;

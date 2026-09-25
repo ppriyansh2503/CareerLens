@@ -9,7 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, pass: string) => Promise<UserRole>;
-  register: (userData: any) => Promise<UserRole>;
+  register: (userData: any) => Promise<any>;
   logout: () => void;
   switchRole: (role: 'student' | 'recruiter' | 'college_admin') => Promise<void>;
 }
@@ -62,17 +62,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (userData: any): Promise<UserRole> => {
+  const register = async (userData: any): Promise<any> => {
     setIsLoading(true);
     try {
       const data = await authAPI.register(userData);
-      setAuthToken(data.access_token);
-      setToken(data.access_token);
-      setRole(data.role);
-
-      const meData = await authAPI.me();
-      setUser(meData);
-      return data.role;
+      if (data.approval_status === "APPROVED" && data.access_token) {
+        setAuthToken(data.access_token);
+        setToken(data.access_token);
+        setRole(data.role);
+        const meData = await authAPI.me();
+        setUser(meData);
+      } else {
+        // Newly registered accounts start in PENDING and require admin approval
+        setAuthToken(null);
+        setToken(null);
+        setRole(null);
+        setUser(null);
+      }
+      return data;
     } finally {
       setIsLoading(false);
     }

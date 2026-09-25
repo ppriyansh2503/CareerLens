@@ -94,6 +94,11 @@ def seed_database_if_empty(db: Session):
         college_canonical.approval_status = "APPROVED"
         db.commit()
 
+    student_canonical = db.query(User).filter(User.email == "student@careerlens.io").first()
+    if student_canonical and student_canonical.approval_status != "APPROVED":
+        student_canonical.approval_status = "APPROVED"
+        db.commit()
+
     # Ensure any existing users without approval_status get APPROVED
     db.query(User).filter(User.approval_status == None).update({"approval_status": "APPROVED"})
     db.commit()

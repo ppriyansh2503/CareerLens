@@ -29,7 +29,7 @@ import {
 } from "../../lib/types";
 
 export const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"reviews" | "recruiters" | "colleges" | "audit">("reviews");
+  const [activeTab, setActiveTab] = useState<"reviews" | "students" | "recruiters" | "colleges" | "audit">("reviews");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +38,7 @@ export const AdminDashboard: React.FC = () => {
   // Real backend datasets
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [certificates, setCertificates] = useState<CertificateReviewItem[]>([]);
+  const [students, setStudents] = useState<UserApprovalItem[]>([]);
   const [recruiters, setRecruiters] = useState<UserApprovalItem[]>([]);
   const [colleges, setColleges] = useState<UserApprovalItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
@@ -47,9 +48,9 @@ export const AdminDashboard: React.FC = () => {
   const [reviewReason, setReviewReason] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
 
-  // Action modal for recruiter/college approval
+  // Action modal for user approval (student, recruiter, college)
   const [userActionModal, setUserActionModal] = useState<{
-    type: "recruiter" | "college";
+    type: "student" | "recruiter" | "college";
     user: UserApprovalItem;
     action: "APPROVE" | "REJECT";
   } | null>(null);
@@ -58,15 +59,17 @@ export const AdminDashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       setError(null);
-      const [statsData, certsData, recsData, colsData, logsData] = await Promise.all([
+      const [statsData, certsData, studentsData, recsData, colsData, logsData] = await Promise.all([
         adminAPI.getStats(),
         adminAPI.listPendingCertificates(),
+        adminAPI.listStudents(),
         adminAPI.listRecruiters(),
         adminAPI.listColleges(),
         adminAPI.getAuditLogs()
       ]);
       setStats(statsData);
       setCertificates(certsData);
+      setStudents(studentsData);
       setRecruiters(recsData);
       setColleges(colsData);
       setAuditLogs(logsData);
@@ -112,10 +115,18 @@ export const AdminDashboard: React.FC = () => {
 
   const handleUserApproval = async () => {
     if (!userActionModal) return;
+    if (userActionModal.action === "REJECT" && !userActionReason.trim()) {
+      setError("Please provide a mandatory reason for account rejection.");
+      return;
+    }
+
     setSubmittingAction(true);
     setError(null);
     try {
-      if (userActionModal.type === "recruiter") {
+      if (userActionModal.type === "student") {
+        await adminAPI.reviewStudent(userActionModal.user.id, userActionModal.action, userActionReason.trim());
+        setSuccessMsg(`Student account ${userActionModal.user.full_name} ${userActionModal.action.toLowerCase()}ed.`);
+      } else if (userActionModal.type === "recruiter") {
         await adminAPI.reviewRecruiter(userActionModal.user.id, userActionModal.action, userActionReason.trim());
         setSuccessMsg(`Recruiter ${userActionModal.user.company_name || userActionModal.user.full_name} ${userActionModal.action.toLowerCase()}ed.`);
       } else {
@@ -127,7 +138,7 @@ export const AdminDashboard: React.FC = () => {
       fetchData();
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: any) {
-      setError(extractErrorMessage(err, "Failed to update institution approval status."));
+      setError(extractErrorMessage(err, "Failed to update account approval status."));
     } finally {
       setSubmittingAction(false);
     }
@@ -199,7 +210,7 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* Real Statistics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4">
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-medium uppercase font-mono">Total Users</span>
@@ -240,6 +251,15 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-medium uppercase font-mono">Pending Students</span>
+            <GraduationCap size={16} className="text-amber-400" />
+          </div>
+          <div className="text-2xl font-black text-amber-300">{stats?.pending_students_count ?? 0}</div>
+          <div className="text-[10px] text-slate-400">Awaiting approval</div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
+          <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-medium uppercase font-mono">Pending Recruiters</span>
             <Building2 size={16} className="text-purple-400" />
           </div>
@@ -250,7 +270,7 @@ export const AdminDashboard: React.FC = () => {
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-medium uppercase font-mono">Pending Colleges</span>
-            <GraduationCap size={16} className="text-teal-400" />
+            <Award size={16} className="text-teal-400" />
           </div>
           <div className="text-2xl font-black text-teal-300">{stats?.pending_colleges_count ?? 0}</div>
           <div className="text-[10px] text-slate-400">TPO verified status</div>
@@ -272,6 +292,23 @@ export const AdminDashboard: React.FC = () => {
           {certificates.length > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/20 text-white">
               {certificates.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab("students")}
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-2 whitespace-nowrap ${
+            activeTab === "students"
+              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
+              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <GraduationCap size={16} />
+          <span>Student Approvals</span>
+          {students.filter(s => s.approval_status === "PENDING").length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              {students.filter(s => s.approval_status === "PENDING").length}
             </span>
           )}
         </button>
@@ -437,6 +474,97 @@ export const AdminDashboard: React.FC = () => {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: Student Approvals */}
+      {activeTab === "students" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-white">Student Accounts & Approvals</h2>
+              <p className="text-xs text-slate-400">
+                Newly registered students start in PENDING approval status. Once approved, candidates gain access to resume extraction, certificate verification, and job matching.
+              </p>
+            </div>
+            <span className="text-xs text-slate-400 font-mono">
+              Total {students.length} student(s) · {students.filter(s => s.approval_status === "PENDING").length} pending
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/60 shadow-xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-800/70 text-slate-400 font-mono uppercase text-[10px] border-b border-slate-800">
+                <tr>
+                  <th className="py-3.5 px-4">Student & College</th>
+                  <th className="py-3.5 px-4">Academic Profile</th>
+                  <th className="py-3.5 px-4">Contact Email</th>
+                  <th className="py-3.5 px-4">Registered Date</th>
+                  <th className="py-3.5 px-4">Approval Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                {students.map((stud) => (
+                  <tr key={stud.id} className="hover:bg-slate-800/30 transition">
+                    <td className="py-4 px-4 space-y-0.5">
+                      <div className="font-bold text-white flex items-center gap-1.5">
+                        <GraduationCap size={14} className="text-indigo-400" />
+                        <span>{stud.full_name}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400">{stud.college_name || "Self-Enrolled Student"}</div>
+                    </td>
+
+                    <td className="py-4 px-4 space-y-0.5">
+                      <div className="text-slate-300">{stud.department || "Computer Science"}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">
+                        Class of {stud.graduation_year || "2026"} · CGPA: {stud.cgpa ? stud.cgpa.toFixed(1) : "N/A"}
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-4 font-mono text-[11px] text-slate-300">
+                      {stud.email}
+                    </td>
+
+                    <td className="py-4 px-4 text-slate-400 text-[11px]">
+                      {new Date(stud.created_at).toLocaleDateString()}
+                    </td>
+
+                    <td className="py-4 px-4">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold ${
+                        stud.approval_status === "APPROVED"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                          : stud.approval_status === "REJECTED"
+                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                          : "bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse"
+                      }`}>
+                        {stud.approval_status}
+                      </span>
+                    </td>
+
+                    <td className="py-4 px-4 text-right space-x-2">
+                      {stud.approval_status !== "APPROVED" && (
+                        <button
+                          onClick={() => setUserActionModal({ type: "student", user: stud, action: "APPROVE" })}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {stud.approval_status !== "REJECTED" && (
+                        <button
+                          onClick={() => setUserActionModal({ type: "student", user: stud, action: "REJECT" })}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-600/80 hover:bg-rose-600 text-white transition shadow-sm"
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -819,7 +947,9 @@ export const AdminDashboard: React.FC = () => {
                 {userActionModal.action === "APPROVE" ? "Approve Account" : "Reject Account"}
               </h3>
               <p className="text-xs text-slate-400">
-                {userActionModal.type === "recruiter"
+                {userActionModal.type === "student"
+                  ? `Student Candidate: ${userActionModal.user.full_name} (${userActionModal.user.college_name || "Enrolled Student"})`
+                  : userActionModal.type === "recruiter"
                   ? `Hiring Partner: ${userActionModal.user.company_name || userActionModal.user.full_name}`
                   : `Institution: ${userActionModal.user.college_name || userActionModal.user.full_name}`}
               </p>
@@ -827,14 +957,15 @@ export const AdminDashboard: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Audit Notes / Justification (Optional)
+                Audit Notes / Justification {userActionModal.action === "REJECT" ? "(Mandatory)" : "(Optional)"}
               </label>
               <input
                 type="text"
-                placeholder="e.g. Domain verified, MoU signed"
+                placeholder={userActionModal.action === "REJECT" ? "e.g. Identity unverified, fraudulent credentials" : "e.g. Verified official email and credentials"}
                 value={userActionReason}
                 onChange={(e) => setUserActionReason(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
+                required={userActionModal.action === "REJECT"}
               />
             </div>
 
