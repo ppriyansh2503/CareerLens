@@ -173,8 +173,3 @@ CareerLens/
 ├── docs/                    # Architecture, API Docs, and Verification Engine deep-dives
 └── docker-compose.yml
 ```
-
----
-
-## 👥 Authors
-Built with ❤️ for Hackathon 2026.
