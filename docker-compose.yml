@@ -1,5 +1,6 @@
 services:
   backend:
+    image: priyanshu2503/careerlens-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -20,6 +21,7 @@ services:
       start_period: 5s
 
   frontend:
+    image: priyanshu2503/careerlens-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -34,4 +36,13 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel --no-autoupdate --url http://frontend:3000
+    depends_on:
+      frontend:
+        condition: service_healthy
+
 
