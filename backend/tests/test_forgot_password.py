@@ -592,3 +592,14 @@ def test_forgot_password_api_preserves_anti_enumeration_on_smtp_failure(monkeypa
     assert res.status_code == 200
     assert res.json()["message"] == "If an account exists with these details, a password reset link has been sent to the registered email address."
 
+
+def test_email_service_username_without_password_returns_false(monkeypatch):
+    """Verify that when SMTP_USERNAME is set but SMTP_PASSWORD is empty, dispatch returns False safely."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp-mail.outlook.com")
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "careerlens.platform@outlook.com")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "")
+
+    success = EmailService.send_password_reset_email("target@example.com", "https://careerlens.io/reset-password?token=abc")
+    assert success is False
+
+

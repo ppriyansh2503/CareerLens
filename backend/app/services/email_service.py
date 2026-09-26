@@ -81,6 +81,13 @@ class EmailService:
 
         # 1. Real SMTP dispatch if configured
         if cls.is_configured():
+            if settings.SMTP_USERNAME and not (settings.SMTP_PASSWORD and settings.SMTP_PASSWORD.strip()):
+                logger.warning(
+                    "[CareerLens Email Service] SMTP_USERNAME is set but SMTP_PASSWORD is empty. Real email cannot be dispatched."
+                )
+                print("[CareerLens Email Service] SMTP_USERNAME is set but SMTP_PASSWORD is empty. Real email cannot be dispatched.")
+                return False
+
             try:
                 msg = MIMEMultipart("alternative")
                 msg["Subject"] = subject
