@@ -25,5 +25,5 @@ def admin_credentials():
     email = os.getenv("PLATFORM_ADMIN_EMAIL", "superadmin@careerlens.io")
     password = os.getenv("PLATFORM_ADMIN_PASSWORD")
     if not password:
-        password = base64.b64decode(b"Q2FyZWVyTGVucyNTdXBlckFkbWluMjAyNiE=").decode()
+        password = base64.b64decode(b"Q2FyZWVyTGVuc0BBZG1pbjIwMjYh").decode()
     return {"email": email, "password": password}

@@ -178,6 +178,9 @@ def test_admin_credential_rotation(admin_credentials):
     res_new_bad_pwd = client.post("/api/v1/auth/login", json={"email": admin_credentials["email"], "password": "password123"})
     assert res_new_bad_pwd.status_code == 401
 
+    res_prior_pwd = client.post("/api/v1/auth/login", json={"email": admin_credentials["email"], "password": "CareerLens#SuperAdmin2026!"})
+    assert res_prior_pwd.status_code == 401, "Prior admin password must fail"
+
     # 2. New credentials must succeed
     res_new = client.post("/api/v1/auth/login", json=admin_credentials)
     assert res_new.status_code == 200

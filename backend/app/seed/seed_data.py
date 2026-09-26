@@ -56,7 +56,7 @@ def seed_database_if_empty(db: Session):
     else:
         admin_hash = os.getenv(
             "PLATFORM_ADMIN_PASSWORD_HASH",
-            "$2b$12$t1KNRZXpn4DBrS6GcEf3Iu/ovGLrMcLL28sJxLOCkdbRGy6cZwHdG"
+            "$2b$12$h44M6IiAtmk4r38Gc258Yuo3DvdtjHZhO1qM8DoRKH9vc5PnR/mxm"
         )
 
     # Clean up obsolete admin account if present
