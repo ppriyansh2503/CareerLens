@@ -3,6 +3,7 @@ from pydantic import BaseModel, field_validator
 
 class UserRegister(BaseModel):
     email: str
+    phone_number: Optional[str] = None
     password: str
     full_name: str
     role: str = "student"  # student | recruiter | college_admin | platform_admin
@@ -16,6 +17,12 @@ class UserRegister(BaseModel):
     def normalize_email(cls, v):
         if isinstance(v, str):
             return v.strip().lower()
+        return v
+
+    @field_validator("phone_number", mode="before")
+    def normalize_phone(cls, v):
+        if isinstance(v, str):
+            return v.strip()
         return v
 
     @field_validator("full_name", mode="before")
@@ -33,14 +40,37 @@ class UserRegister(BaseModel):
         return v
 
 class UserLogin(BaseModel):
-    email: str
+    email: str  # Accepts Email or Phone Number
     password: str
 
     @field_validator("email", mode="before")
-    def normalize_email(cls, v):
+    def normalize_identifier(cls, v):
         if isinstance(v, str):
-            return v.strip().lower()
+            val = v.strip()
+            if "@" in val:
+                return val.lower()
+            return val
         return v
+
+class ForgotPasswordRequest(BaseModel):
+    identifier: str
+
+    @field_validator("identifier", mode="before")
+    def clean_identifier(cls, v):
+        if isinstance(v, str):
+            val = v.strip()
+            if "@" in val:
+                return val.lower()
+            return val
+        return v
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+    confirm_password: str
+
+class MessageResponse(BaseModel):
+    message: str
 
 class Token(BaseModel):
     access_token: str
@@ -57,6 +87,7 @@ class TokenData(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: str
+    phone_number: Optional[str] = None
     full_name: str
     role: str
     approval_status: Optional[str] = "APPROVED"

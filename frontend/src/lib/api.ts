@@ -121,6 +121,14 @@ export const authAPI = {
   demoSwitch: async (role: 'student' | 'recruiter' | 'college_admin' | 'platform_admin') => {
     const res = await api.post(`/auth/demo-switch/${role}`);
     return res.data;
+  },
+  forgotPassword: async (identifier: string) => {
+    const res = await api.post('/auth/forgot-password', { identifier });
+    return res.data;
+  },
+  resetPassword: async (token: string, new_password: string, confirm_password: string) => {
+    const res = await api.post('/auth/reset-password', { token, new_password, confirm_password });
+    return res.data;
   }
 };
 

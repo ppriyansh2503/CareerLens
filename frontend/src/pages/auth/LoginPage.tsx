@@ -30,19 +30,19 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail || !password) {
-      setError("Please provide both email and password.");
+    const trimmedIdentifier = email.trim();
+    if (!trimmedIdentifier || !password) {
+      setError("Please provide your email or phone number and password.");
       return;
     }
     setError(null);
     setLoading(true);
 
     try {
-      const userRole = await login(trimmedEmail, password);
+      const userRole = await login(trimmedIdentifier, password);
       redirectByRole(userRole);
     } catch (err: any) {
-      setError(extractErrorMessage(err, "Invalid credentials. Please check your email and password."));
+      setError(extractErrorMessage(err, "Invalid credentials. Please check your credentials and password."));
     } finally {
       setLoading(false);
     }
@@ -205,13 +205,13 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Email Address
+                Email or Phone Number
               </label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="email"
-                  placeholder="you@example.com"
+                  type="text"
+                  placeholder="you@example.com or 10-digit phone"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
@@ -221,9 +221,17 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -245,6 +253,15 @@ export const LoginPage: React.FC = () => {
               <span>{loading ? "Authenticating..." : "Sign In"}</span>
               <ArrowRight size={15} />
             </button>
+
+            <div className="text-center pt-1">
+              <Link
+                to="/forgot-password"
+                className="text-xs text-slate-400 hover:text-indigo-300 transition-colors"
+              >
+                Forgot your password?
+              </Link>
+            </div>
           </form>
 
           <div className="pt-4 border-t border-slate-700/60 text-center text-xs text-slate-400">

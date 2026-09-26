@@ -20,6 +20,9 @@ def run_sqlite_migrations():
                 if "approval_status" not in user_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN approval_status VARCHAR DEFAULT 'APPROVED';"))
                     conn.commit()
+                if "phone_number" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN phone_number VARCHAR;"))
+                    conn.commit()
 
             if inspector.has_table("certificates"):
                 cert_cols = [c["name"] for c in inspector.get_columns("certificates")]

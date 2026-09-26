@@ -69,6 +69,7 @@ def seed_database_if_empty(db: Session):
     if not admin_canonical:
         admin_canonical = User(
             email=admin_email,
+            phone_number="9876543213",
             password_hash=admin_hash,
             full_name="CareerLens Platform Admin",
             role="platform_admin",
@@ -79,6 +80,8 @@ def seed_database_if_empty(db: Session):
     else:
         admin_canonical.role = "platform_admin"
         admin_canonical.approval_status = "APPROVED"
+        if not admin_canonical.phone_number:
+            admin_canonical.phone_number = "9876543213"
         # Preserve existing password_hash so rotated passwords persist across restarts
         db.commit()
 
@@ -87,6 +90,7 @@ def seed_database_if_empty(db: Session):
     if not recruiter_canonical:
         db.add(User(
             email="recruiter@careerlens.io",
+            phone_number="9876543211",
             password_hash=hashed_pwd,
             full_name="Sneha Rao",
             role="recruiter",
@@ -94,14 +98,18 @@ def seed_database_if_empty(db: Session):
             approval_status="APPROVED"
         ))
         db.commit()
-    elif recruiter_canonical.approval_status != "APPROVED":
-        recruiter_canonical.approval_status = "APPROVED"
+    else:
+        if recruiter_canonical.approval_status != "APPROVED":
+            recruiter_canonical.approval_status = "APPROVED"
+        if not recruiter_canonical.phone_number:
+            recruiter_canonical.phone_number = "9876543211"
         db.commit()
 
     college_canonical = db.query(User).filter(User.email == "college@careerlens.io").first()
     if not college_canonical:
         db.add(User(
             email="college@careerlens.io",
+            phone_number="9876543212",
             password_hash=hashed_pwd,
             full_name="Dr. Rajiv Kapoor",
             role="college_admin",
@@ -109,13 +117,19 @@ def seed_database_if_empty(db: Session):
             approval_status="APPROVED"
         ))
         db.commit()
-    elif college_canonical.approval_status != "APPROVED":
-        college_canonical.approval_status = "APPROVED"
+    else:
+        if college_canonical.approval_status != "APPROVED":
+            college_canonical.approval_status = "APPROVED"
+        if not college_canonical.phone_number:
+            college_canonical.phone_number = "9876543212"
         db.commit()
 
     student_canonical = db.query(User).filter(User.email == "student@careerlens.io").first()
-    if student_canonical and student_canonical.approval_status != "APPROVED":
-        student_canonical.approval_status = "APPROVED"
+    if student_canonical:
+        if student_canonical.approval_status != "APPROVED":
+            student_canonical.approval_status = "APPROVED"
+        if not student_canonical.phone_number:
+            student_canonical.phone_number = "9876543210"
         db.commit()
 
     # Ensure any existing users without approval_status get APPROVED
@@ -180,6 +194,7 @@ def seed_database_if_empty(db: Session):
     # Demo Student 1: Aarav Sharma (Gold Badge Student)
     student_user = User(
         email="student@careerlens.io",
+        phone_number="9876543210",
         password_hash=hashed_pwd,
         full_name="Aarav Sharma",
         role="student",

@@ -3,6 +3,7 @@ import base64
 import pytest
 from app.core.database import Base, engine, SessionLocal
 from app.seed.seed_data import seed_database_if_empty
+from app.main import run_sqlite_migrations
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
@@ -11,6 +12,7 @@ def setup_test_database():
     are created before any test runs.
     """
     Base.metadata.create_all(bind=engine)
+    run_sqlite_migrations()
     db = SessionLocal()
     try:
         seed_database_if_empty(db)

@@ -5,6 +5,8 @@ import { Navbar } from './components/common/Navbar';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { ProfilePage } from './pages/student/ProfilePage';
 import { ResumePage } from './pages/student/ResumePage';
@@ -62,6 +64,8 @@ export const App: React.FC = () => {
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               
               {/* Student Protected Routes */}
               <Route 

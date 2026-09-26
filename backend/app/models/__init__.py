@@ -6,6 +6,7 @@ from app.models.job import Job, JobSkill
 from app.models.application import Application
 from app.models.chat import ChatSession, ChatMessage
 from app.models.audit_log import AuditLog
+from app.models.password_reset_token import PasswordResetToken
 
 __all__ = [
     "User",
@@ -19,4 +20,5 @@ __all__ = [
     "ChatSession",
     "ChatMessage",
     "AuditLog",
+    "PasswordResetToken",
 ]

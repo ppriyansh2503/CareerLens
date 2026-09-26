@@ -10,6 +10,14 @@ services:
       - DATABASE_URL=sqlite:///./careerlens.db
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - PLATFORM_ADMIN_EMAIL=${PLATFORM_ADMIN_EMAIL:-superadmin@careerlens.io}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@careerlens.io}
+      - SMTP_TLS=${SMTP_TLS:-True}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/careerlens.db:/app/careerlens.db
