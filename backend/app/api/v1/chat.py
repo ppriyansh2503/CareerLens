@@ -1,12 +1,14 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.student import StudentProfile
+from app.models.job import Job
 from app.models.chat import ChatSession, ChatMessage
 from app.schemas.chat import ChatMessageCreate, ChatMessageOut, ChatSessionOut
 from app.services.ai_service import AIService
+from app.services.matching_engine import MatchingEngine
 
 router = APIRouter()
 
@@ -37,6 +39,18 @@ def send_chat_message(
         db.commit()
         db.refresh(session)
 
+    # Fetch prior conversation history in this session (up to last 8 messages)
+    prior_messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session.id)
+        .order_by(ChatMessage.created_at.asc())
+        .all()
+    )
+    chat_history = [
+        {"sender": m.sender, "content": m.content}
+        for m in prior_messages[-8:]
+    ]
+
     # Save user message
     user_lang = AIService.detect_language(msg_in.content)
     user_msg = ChatMessage(
@@ -48,10 +62,34 @@ def send_chat_message(
     db.add(user_msg)
     db.commit()
 
-    # Generate AI response
+    # Compute live job matches and missing skills for student
+    jobs_matches = []
+    missing_skills = []
+    if student:
+        try:
+            active_jobs = db.query(Job).filter(Job.is_active == True).all()
+            if not active_jobs:
+                active_jobs = db.query(Job).all()
+            
+            computed = []
+            for j in active_jobs:
+                match_res = MatchingEngine.calculate_match(student, j)
+                computed.append(match_res)
+                for s in match_res.get("skill_analysis", {}).get("missing_critical_skills", []):
+                    if s not in missing_skills:
+                        missing_skills.append(s)
+            
+            jobs_matches = sorted(computed, key=lambda m: m["overall_score"], reverse=True)[:4]
+        except Exception as e:
+            print(f"[Chat Router] Error calculating matches for student context: {e}")
+
+    # Generate AI response with comprehensive grounding
     ai_result = AIService.generate_chat_response(
         user_message=msg_in.content,
-        student=student
+        student=student,
+        chat_history=chat_history,
+        jobs_matches=jobs_matches,
+        missing_skills=missing_skills
     )
 
     # Save assistant message

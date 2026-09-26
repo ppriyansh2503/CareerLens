@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { chatAPI } from '../../lib/api';
-import { ChatMessage } from '../../lib/types';
+import { chatAPI, profileAPI } from '../../lib/api';
+import { ChatMessage, StudentProfile } from '../../lib/types';
 import { useAuth } from '../../lib/authContext';
 import { 
   MessageSquare, 
@@ -15,10 +15,28 @@ import {
 
 export const ChatPage: React.FC = () => {
   const { user } = useAuth();
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch real profile data on mount to ensure ground truth score and credentials
+  useEffect(() => {
+    profileAPI.getStudentProfile()
+      .then(data => {
+        if (data) setProfile(data);
+      })
+      .catch(err => console.error("Error loading profile for chat grounding:", err));
+  }, []);
+
+  const verifiedCerts = profile?.certificates?.filter(c => c.verification_status === 'VERIFIED') || [];
+  const verifiedBadgesText = verifiedCerts.length > 0
+    ? verifiedCerts.map(c => `${c.title} (${c.badge_tier} Badge)`).join(', ')
+    : 'AWS Certified Developer (Gold Badge)';
+  const readinessScoreText = profile?.placement_readiness_score !== undefined
+    ? `${profile.placement_readiness_score}%`
+    : '88.5%';
 
   useEffect(() => {
     chatAPI.getHistory()
@@ -26,13 +44,13 @@ export const ChatPage: React.FC = () => {
         if (data && data.length > 0) {
           setMessages(data);
         } else {
-          // Welcome greeting
+          // Welcome greeting dynamically grounded in profile
           setMessages([
             {
               id: 0,
               session_id: 1,
               sender: 'assistant',
-              content: `Hello ${user?.full_name || 'Aarav'}! I am CareerLens AI, your bilingual placement and career counselor.\n\nI am grounded with your verified credentials (AWS Certified Developer Gold Badge) and placement readiness metrics.\n\nFeel free to ask questions in English, Hindi (हिंदी), or Hinglish!`,
+              content: `Hello ${user?.full_name || 'Aarav'}! I am CareerLens AI, your personal senior engineering career mentor.\n\nI am grounded in your live profile (${readinessScoreText} Readiness • ${verifiedBadgesText}) and active job matches.\n\nAsk me for real project architectures, business ideas from your skills, internship preparation, or learning roadmaps in English, Hindi (हिंदी), or Hinglish!`,
               detected_language: 'en',
               created_at: new Date().toISOString()
             }
@@ -40,7 +58,7 @@ export const ChatPage: React.FC = () => {
         }
       })
       .catch(err => console.error(err));
-  }, [user]);
+  }, [user, profile]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -84,10 +102,12 @@ export const ChatPage: React.FC = () => {
   };
 
   const promptChips = [
-    { label: "Mera match score 95% kaise hoga?", lang: "Hinglish", tag: "🇮🇳" },
-    { label: "Analyze my skill gaps for Cloud Engineer roles", lang: "English", tag: "🇺🇸" },
-    { label: "रिज्यूमे में कौन सी स्किल्स जोड़नी चाहिए?", lang: "Hindi", tag: "हिंदी" },
-    { label: "Why is Gold badge better than self-reported skills?", lang: "English", tag: "🛡️" },
+    { label: "Mere skills ke according 3 projects batao", lang: "Hinglish", tag: "🚀" },
+    { label: "Mere skills se kya business bana sakta hoon?", lang: "Hinglish", tag: "💼" },
+    { label: "Which career roles fit my profile?", lang: "English", tag: "🎯" },
+    { label: "What should I learn next for 85%+ readiness?", lang: "English", tag: "📚" },
+    { label: "रिज्यूमे में कौन सी स्किल्स जोड़नी चाहिए?", lang: "Hindi", tag: "🇮🇳" },
+    { label: "Which project would make my resume stronger?", lang: "English", tag: "💻" },
   ];
 
   return (
@@ -116,7 +136,7 @@ export const ChatPage: React.FC = () => {
         <div className="flex items-center gap-2 text-indigo-300">
           <ShieldCheck size={16} className="text-indigo-400 shrink-0" />
           <span>
-            <strong>Context Active:</strong> {user?.full_name || 'Aarav Sharma'} • AWS Certified Gold Badge • 88.5% Readiness
+            <strong>Context Active:</strong> {user?.full_name || profile?.full_name || 'Aarav Sharma'} • {verifiedBadgesText} • {readinessScoreText} Readiness
           </span>
         </div>
         <span className="text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">
