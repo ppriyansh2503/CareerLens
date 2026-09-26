@@ -270,7 +270,12 @@ export const adminAPI = {
   getAuditLogs: async (): Promise<AuditLogItem[]> => {
     const res = await api.get('/admin/audit-logs');
     return res.data;
+  },
+  changePassword: async (data: { current_password: string; new_password: string; confirm_password: string }): Promise<{ message: string; status: string }> => {
+    const res = await api.post('/admin/change-password', data);
+    return res.data;
   }
 };
+
 
 export default api;

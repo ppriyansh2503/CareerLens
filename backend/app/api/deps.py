@@ -105,12 +105,19 @@ def get_current_college_admin(
     return current_user
 
 def get_current_admin(
+    token: Optional[str] = Depends(reusable_oauth2),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> User:
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication credentials were not provided",
+        )
     if current_user.role != "platform_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires platform administrator privileges",
         )
     return current_user
+

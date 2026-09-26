@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   ShieldCheck, 
   ShieldAlert, 
@@ -13,14 +14,18 @@ import {
   FileText, 
   RefreshCw, 
   Eye, 
+  EyeOff,
   Search,
   ExternalLink,
   ChevronRight,
   Shield,
   Layers,
-  History
+  History,
+  KeyRound,
+  Lock
 } from "lucide-react";
 import { adminAPI, extractErrorMessage } from "../../lib/api";
+import { useAuth } from "../../lib/authContext";
 import { 
   PlatformStats, 
   CertificateReviewItem, 
@@ -29,11 +34,24 @@ import {
 } from "../../lib/types";
 
 export const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
   const [activeTab, setActiveTab] = useState<"reviews" | "students" | "recruiters" | "colleges" | "audit">("reviews");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Change Password Modal state
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+
 
   // Real backend datasets
   const [stats, setStats] = useState<PlatformStats | null>(null);
@@ -144,7 +162,56 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+
+    if (!currentPassword) {
+      setPasswordError("Please enter your current password.");
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters in length.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New password and confirm password do not match.");
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setPasswordError("New password cannot be identical to current password.");
+      return;
+    }
+
+    setPasswordSubmitting(true);
+    try {
+      await adminAPI.changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
+
+      setIsPasswordModalOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+
+      // Log out admin and navigate to /login with success notification
+      logout();
+      navigate("/login", {
+        state: {
+          message: "Platform Admin password changed successfully. Please sign in with your new password.",
+        },
+      });
+    } catch (err: any) {
+      setPasswordError(extractErrorMessage(err, "Failed to change admin password."));
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
+
   if (loading) {
+
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
@@ -178,6 +245,19 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="flex items-center gap-3 z-10">
           <button
+            onClick={() => {
+              setPasswordError(null);
+              setCurrentPassword("");
+              setNewPassword("");
+              setConfirmPassword("");
+              setIsPasswordModalOpen(true);
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition flex items-center gap-2 shadow-sm"
+          >
+            <KeyRound size={14} className="text-indigo-400" />
+            <span>Change Password</span>
+          </button>
+          <button
             onClick={handleRefresh}
             disabled={refreshing}
             className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-2"
@@ -187,6 +267,7 @@ export const AdminDashboard: React.FC = () => {
           </button>
         </div>
       </div>
+
 
       {/* Notifications */}
       {error && (
@@ -994,6 +1075,131 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Change Admin Password Modal */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-7 space-y-5">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30">
+                    Security Credentials
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-white">Change Admin Password</h3>
+                <p className="text-xs text-slate-400">
+                  Update your platform administrator password. You will be asked to sign in again.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsPasswordModalOpen(false)}
+                disabled={passwordSubmitting}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {passwordError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
+                <AlertTriangle size={15} className="text-rose-400 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{passwordError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type={showPasswords ? "text" : "password"}
+                    placeholder="Enter current password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(!showPasswords)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showPasswords ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  New Password <span className="text-slate-500 text-[10px]">(min. 6 characters)</span>
+                </label>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type={showPasswords ? "text" : "password"}
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type={showPasswords ? "text" : "password"}
+                    placeholder="Re-enter new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  disabled={passwordSubmitting}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordSubmitting}
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/25 disabled:opacity-50"
+                >
+                  {passwordSubmitting ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound size={13} />
+                      <span>Update Password</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

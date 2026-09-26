@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../lib/authContext";
 import { extractErrorMessage } from "../../lib/api";
-import { ShieldCheck, Mail, Lock, ArrowRight, Sparkles, User, Briefcase, GraduationCap, AlertCircle } from "lucide-react";
+import { ShieldCheck, Mail, Lock, ArrowRight, Sparkles, User, Briefcase, GraduationCap, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +13,8 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(location.state?.message || null);
+
 
   const redirectByRole = (role: string) => {
     if (role === "recruiter") {
@@ -160,7 +162,18 @@ export const LoginPage: React.FC = () => {
 
         {/* Login Form */}
         <div className="p-6 sm:p-8 rounded-3xl bg-slate-800/50 border border-slate-700/80 shadow-2xl space-y-5">
+          {notice && (
+            <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                <span>{notice}</span>
+              </div>
+              <button type="button" onClick={() => setNotice(null)} className="text-xs text-emerald-400 hover:text-white">✕</button>
+            </div>
+          )}
+
           {error && (
+
             <div
               className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
                 error.toLowerCase().includes("pending")

@@ -16,12 +16,16 @@ from app.schemas.admin import (
     CertificateReviewAction,
     UserApprovalItem,
     UserApprovalAction,
-    AuditLogOut
+    AuditLogOut,
+    AdminChangePasswordRequest,
+    AdminChangePasswordResponse
 )
 from app.services.skill_service import get_or_create_skill
 from app.services.certificate_verifier import CertificateVerifier
+from app.core.security import verify_password, get_password_hash
 
 router = APIRouter()
+
 
 @router.get("/stats", response_model=PlatformStats)
 def get_platform_stats(
@@ -460,3 +464,68 @@ def get_audit_logs(
             created_at=log.created_at
         ))
     return results
+
+@router.post("/change-password", response_model=AdminChangePasswordResponse)
+def change_admin_password(
+    data: AdminChangePasswordRequest,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Secure password change for authenticated Platform Admin:
+    - Verifies current password matches existing hash (401 if invalid).
+    - Validates new password length >= 6 (400 if invalid).
+    - Validates confirm_password matches new_password (400 if mismatch).
+    - Validates new_password differs from current_password (400 if identical).
+    - Hashes new password with bcrypt and updates database.
+    - Records an audit log entry (ADMIN_PASSWORD_CHANGED) with NO passwords in details.
+    """
+    # 1. Verify current password
+    if not verify_password(data.current_password, current_admin.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect"
+        )
+
+    # 2. Validate new password is not empty and minimum 6 characters
+    new_password = data.new_password.strip()
+    if not new_password or len(data.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 6 characters in length"
+        )
+
+    # 3. Validate new password matches confirmation
+    if data.new_password != data.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password and confirmation password do not match"
+        )
+
+    # 4. Validate new password is not identical to current password
+    if data.new_password == data.current_password or verify_password(data.new_password, current_admin.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password cannot be identical to current password"
+        )
+
+    # 5. Hash new password and update database
+    current_admin.password_hash = get_password_hash(data.new_password)
+    db.commit()
+
+    # 6. Audit log entry (ZERO passwords or hashes stored)
+    db.add(AuditLog(
+        admin_id=current_admin.id,
+        action="ADMIN_PASSWORD_CHANGED",
+        target_type="platform_admin",
+        target_id=current_admin.id,
+        target_name=current_admin.email,
+        details="Platform admin changed password."
+    ))
+    db.commit()
+
+    return AdminChangePasswordResponse(
+        message="Admin password changed successfully",
+        status="success"
+    )
+

@@ -79,8 +79,9 @@ def seed_database_if_empty(db: Session):
     else:
         admin_canonical.role = "platform_admin"
         admin_canonical.approval_status = "APPROVED"
-        admin_canonical.password_hash = admin_hash
+        # Preserve existing password_hash so rotated passwords persist across restarts
         db.commit()
+
 
     recruiter_canonical = db.query(User).filter(User.email == "recruiter@careerlens.io").first()
     if not recruiter_canonical:

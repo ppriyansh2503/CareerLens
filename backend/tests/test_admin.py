@@ -196,3 +196,123 @@ def test_admin_credential_rotation(admin_credentials):
     res_demo = client.post("/api/v1/auth/demo-switch/platform_admin")
     assert res_demo.status_code == 200
     assert res_demo.json()["role"] == "platform_admin"
+
+def test_admin_change_password_rbac(tokens, admin_credentials):
+    # 1. Unauthenticated request must return 401
+    res_unauth = client.post("/api/v1/admin/change-password", json={
+        "current_password": "any",
+        "new_password": "anypassword123",
+        "confirm_password": "anypassword123"
+    })
+    assert res_unauth.status_code == 401
+
+    # 2. Non-admin roles (student, recruiter, college) must return 403 Forbidden
+    for role in ["student", "recruiter", "college"]:
+        headers = {"Authorization": f"Bearer {tokens[role]}"}
+        res_forbidden = client.post("/api/v1/admin/change-password", headers=headers, json={
+            "current_password": "password123",
+            "new_password": "newpassword123",
+            "confirm_password": "newpassword123"
+        })
+        assert res_forbidden.status_code == 403, f"{role} should receive 403 Forbidden"
+
+def test_admin_change_password_validation_errors(tokens, admin_credentials):
+    headers = {"Authorization": f"Bearer {tokens['admin']}"}
+    curr_pwd = admin_credentials["password"]
+
+    # 1. Wrong current password -> 401
+    res_wrong_curr = client.post("/api/v1/admin/change-password", headers=headers, json={
+        "current_password": "WrongCurrentPassword123!",
+        "new_password": "ValidNewPassword123!",
+        "confirm_password": "ValidNewPassword123!"
+    })
+    assert res_wrong_curr.status_code == 401
+    assert "incorrect" in res_wrong_curr.json()["detail"].lower()
+
+    # 2. Password mismatch -> 400
+    res_mismatch = client.post("/api/v1/admin/change-password", headers=headers, json={
+        "current_password": curr_pwd,
+        "new_password": "ValidNewPassword123!",
+        "confirm_password": "MismatchPassword123!"
+    })
+    assert res_mismatch.status_code == 400
+    assert "match" in res_mismatch.json()["detail"].lower()
+
+    # 3. Short password (< 6 chars) -> 400
+    res_short = client.post("/api/v1/admin/change-password", headers=headers, json={
+        "current_password": curr_pwd,
+        "new_password": "123",
+        "confirm_password": "123"
+    })
+    assert res_short.status_code == 400
+    assert "6 characters" in res_short.json()["detail"]
+
+    # 4. Same as current password -> 400
+    res_same = client.post("/api/v1/admin/change-password", headers=headers, json={
+        "current_password": curr_pwd,
+        "new_password": curr_pwd,
+        "confirm_password": curr_pwd
+    })
+    assert res_same.status_code == 400
+    assert "identical" in res_same.json()["detail"].lower()
+
+def test_admin_change_password_success_and_audit(tokens, admin_credentials):
+    headers = {"Authorization": f"Bearer {tokens['admin']}"}
+    curr_pwd = admin_credentials["password"]
+    admin_email = admin_credentials["email"]
+    temp_pwd = "TempRotated#AdminPass99"
+
+    try:
+        # 1. Successful password change
+        res_change = client.post("/api/v1/admin/change-password", headers=headers, json={
+            "current_password": curr_pwd,
+            "new_password": temp_pwd,
+            "confirm_password": temp_pwd
+        })
+        assert res_change.status_code == 200
+        assert res_change.json()["status"] == "success"
+        assert "changed successfully" in res_change.json()["message"]
+
+        # 2. Old password must fail
+        res_old_login = client.post("/api/v1/auth/login", json={
+            "email": admin_email,
+            "password": curr_pwd
+        })
+        assert res_old_login.status_code == 401
+
+        # 3. New password must succeed
+        res_new_login = client.post("/api/v1/auth/login", json={
+            "email": admin_email,
+            "password": temp_pwd
+        })
+        assert res_new_login.status_code == 200
+        new_token = res_new_login.json()["access_token"]
+        new_headers = {"Authorization": f"Bearer {new_token}"}
+
+        # 4. Audit log entry recorded and verified
+        res_audit = client.get("/api/v1/admin/audit-logs", headers=new_headers)
+        assert res_audit.status_code == 200
+        logs = res_audit.json()
+        pwd_change_logs = [l for l in logs if l["action"] == "ADMIN_PASSWORD_CHANGED"]
+        assert len(pwd_change_logs) > 0
+        latest_pwd_log = pwd_change_logs[0]
+        assert latest_pwd_log["target_type"] == "platform_admin"
+        assert curr_pwd not in (latest_pwd_log["details"] or "")
+        assert temp_pwd not in (latest_pwd_log["details"] or "")
+
+    finally:
+        # 5. Restore original password so test suite and demo logins remain consistent
+        # Log in with temp_pwd if needed to get active token
+        res_active_login = client.post("/api/v1/auth/login", json={
+            "email": admin_email,
+            "password": temp_pwd
+        })
+        if res_active_login.status_code == 200:
+            active_token = res_active_login.json()["access_token"]
+            res_restore = client.post("/api/v1/admin/change-password", headers={"Authorization": f"Bearer {active_token}"}, json={
+                "current_password": temp_pwd,
+                "new_password": curr_pwd,
+                "confirm_password": curr_pwd
+            })
+            assert res_restore.status_code == 200
+

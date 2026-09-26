@@ -70,3 +70,12 @@ class AuditLogOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class AdminChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+class AdminChangePasswordResponse(BaseModel):
+    message: str
+    status: str = "success"
