@@ -1,19 +1,30 @@
 import smtplib
+import socket
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import List, Dict, Any
 from app.core.config import settings
 
+logger = logging.getLogger("careerlens.email_service")
+
 class EmailService:
     """
     Email abstraction service for CareerLens.
-    Supports real SMTP delivery when configured via environment variables,
+    Supports real SMTP delivery (STARTTLS / SSL) when configured via environment variables,
     and safe development-only logging and test inspection without leaking
     sensitive credentials or exposing tokens in production logs.
     """
     
     # In-memory storage for test verification and local development
     latest_dev_emails: List[Dict[str, Any]] = []
+
+    @classmethod
+    def is_configured(cls) -> bool:
+        """
+        Check if the SMTP service is configured with a host.
+        """
+        return bool(settings.SMTP_HOST and settings.SMTP_HOST.strip())
 
     @classmethod
     def send_password_reset_email(cls, to_email: str, reset_url: str) -> bool:
@@ -57,7 +68,7 @@ class EmailService:
         </html>
         """
 
-        # Record into development email inbox for testing
+        # Record into development email inbox for testing & inspection
         record = {
             "to": to_email,
             "subject": subject,
@@ -68,8 +79,8 @@ class EmailService:
         if len(cls.latest_dev_emails) > 20:
             cls.latest_dev_emails.pop(0)
 
-        # 1. Real SMTP dispatch if SMTP_HOST is configured
-        if settings.SMTP_HOST and settings.SMTP_HOST.strip():
+        # 1. Real SMTP dispatch if configured
+        if cls.is_configured():
             try:
                 msg = MIMEMultipart("alternative")
                 msg["Subject"] = subject
@@ -81,23 +92,46 @@ class EmailService:
                 msg.attach(part1)
                 msg.attach(part2)
 
-                with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
-                    if settings.SMTP_TLS:
-                        server.starttls()
-                    if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
-                        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                    server.send_message(msg)
+                # Connect via SSL (port 465) or STARTTLS (port 587/25)
+                use_ssl = settings.SMTP_SSL or settings.SMTP_PORT == 465
+                if use_ssl:
+                    with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+                        if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
+                            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+                        server.send_message(msg)
+                else:
+                    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+                        if settings.SMTP_TLS:
+                            server.starttls()
+                        if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
+                            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+                        server.send_message(msg)
+
+                logger.info(f"[CareerLens Email Service] Successfully sent password reset email via SMTP to {to_email}")
+                print(f"[CareerLens Email Service] Successfully dispatched password reset email via SMTP to {to_email}")
                 return True
+
+            except smtplib.SMTPAuthenticationError:
+                logger.error("[CareerLens Email Service Error] SMTP Authentication failed. Verify SMTP_USERNAME and SMTP_PASSWORD.")
+                print("[CareerLens Email Service Error] SMTP Authentication failed. Verify SMTP_USERNAME and SMTP_PASSWORD.")
+                return False
+            except (smtplib.SMTPException, socket.timeout, OSError) as e:
+                logger.error(f"[CareerLens Email Service Error] Failed to send email via SMTP ({type(e).__name__}): {e}")
+                print(f"[CareerLens Email Service Error] Failed to send email via SMTP ({type(e).__name__}): {e}")
+                return False
             except Exception as e:
-                print(f"[CareerLens Email Service Error] Failed to send email via SMTP: {e}")
+                logger.error(f"[CareerLens Email Service Error] Unexpected error sending email ({type(e).__name__}): {e}")
+                print(f"[CareerLens Email Service Error] Unexpected error sending email ({type(e).__name__}): {e}")
                 return False
 
-        # 2. Development fallback
+        # 2. Unconfigured fallback
         is_production = settings.ENVIRONMENT.lower() == "production"
         if not is_production:
+            logger.info(f"[CareerLens Dev Email] Password reset link for {to_email}: {reset_url}")
             print(f"[CareerLens Dev Email] Password reset link for {to_email}: {reset_url}")
+            return True
         else:
-            # Production: Never expose tokens in production logs
-            print(f"[CareerLens Email Service] SMTP unconfigured. Password reset dispatched for registered email.")
+            logger.warning("[CareerLens Email Service] SMTP is unconfigured (SMTP_HOST is empty). Real email cannot be dispatched.")
+            print("[CareerLens Email Service] SMTP is unconfigured (SMTP_HOST is empty). Real email cannot be dispatched.")
+            return False
 
-        return True

@@ -1,5 +1,6 @@
 import secrets
 import hashlib
+import logging
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from app.schemas.auth import (
 )
 from app.services.email_service import EmailService
 
+logger = logging.getLogger("careerlens.auth")
 router = APIRouter()
 
 @router.post("/register", response_model=Token)
@@ -165,7 +167,11 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
         # Dispatch reset link strictly to the user's registered email
         reset_url = f"{settings.FRONTEND_URL}/reset-password?token={raw_token}"
-        EmailService.send_password_reset_email(to_email=user.email, reset_url=reset_url)
+        dispatched = EmailService.send_password_reset_email(to_email=user.email, reset_url=reset_url)
+        if dispatched:
+            logger.info(f"[CareerLens Auth] Password reset email successfully dispatched for user {user.id}")
+        else:
+            logger.warning(f"[CareerLens Auth] Password reset email dispatch failed or SMTP unconfigured for user {user.id}")
 
     return {"message": generic_msg}
 

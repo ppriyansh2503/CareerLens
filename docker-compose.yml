@@ -17,6 +17,7 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_FROM=${SMTP_FROM:-noreply@careerlens.io}
       - SMTP_TLS=${SMTP_TLS:-True}
+      - SMTP_SSL=${SMTP_SSL:-False}
       - ENVIRONMENT=${ENVIRONMENT:-production}
     volumes:
       - ./backend/uploads:/app/uploads

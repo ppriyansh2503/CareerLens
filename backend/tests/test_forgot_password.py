@@ -1,6 +1,9 @@
 import pytest
 import secrets
 import hashlib
+import smtplib
+import socket
+from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 from fastapi.testclient import TestClient
 from app.main import app
@@ -8,6 +11,7 @@ from app.core.database import SessionLocal
 from app.models.user import User
 from app.models.password_reset_token import PasswordResetToken
 from app.core.security import get_password_hash, verify_password
+from app.core.config import settings
 from app.services.email_service import EmailService
 
 client = TestClient(app)
@@ -481,3 +485,110 @@ def test_platform_admin_reset_flow(admin_credentials):
     assert res.status_code == 200
     assert len(EmailService.latest_dev_emails) > 0
     assert EmailService.latest_dev_emails[-1]["to"] == admin_email
+
+
+def test_email_service_is_configured_detection(monkeypatch):
+    """Verify EmailService.is_configured accurately detects configuration."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
+    assert EmailService.is_configured() is False
+
+    monkeypatch.setattr(settings, "SMTP_HOST", "   ")
+    assert EmailService.is_configured() is False
+
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.gmail.com")
+    assert EmailService.is_configured() is True
+
+
+def test_email_service_successful_smtp_dispatch_tls(monkeypatch):
+    """Verify EmailService dispatches via SMTP with STARTTLS and authentication."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.testserver.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 587)
+    monkeypatch.setattr(settings, "SMTP_TLS", True)
+    monkeypatch.setattr(settings, "SMTP_SSL", False)
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "testuser@testserver.com")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "testpass123")
+    monkeypatch.setattr(settings, "SMTP_FROM", "noreply@careerlens.io")
+
+    mock_server = MagicMock()
+    mock_server_context = MagicMock()
+    mock_server_context.__enter__.return_value = mock_server
+
+    with patch("smtplib.SMTP", return_value=mock_server_context) as mock_smtp_cls:
+        success = EmailService.send_password_reset_email("target@example.com", "https://careerlens.io/reset-password?token=abc")
+        assert success is True
+        mock_smtp_cls.assert_called_once_with("smtp.testserver.com", 587, timeout=10)
+        mock_server.starttls.assert_called_once()
+        mock_server.login.assert_called_once_with("testuser@testserver.com", "testpass123")
+        mock_server.send_message.assert_called_once()
+
+
+def test_email_service_successful_smtp_dispatch_ssl(monkeypatch):
+    """Verify EmailService dispatches via SMTP_SSL for port 465."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.testserver.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 465)
+    monkeypatch.setattr(settings, "SMTP_SSL", True)
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "ssluser@testserver.com")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "sslpass123")
+    monkeypatch.setattr(settings, "SMTP_FROM", "noreply@careerlens.io")
+
+    mock_server = MagicMock()
+    mock_server_context = MagicMock()
+    mock_server_context.__enter__.return_value = mock_server
+
+    with patch("smtplib.SMTP_SSL", return_value=mock_server_context) as mock_ssl_cls:
+        success = EmailService.send_password_reset_email("target_ssl@example.com", "https://careerlens.io/reset-password?token=xyz")
+        assert success is True
+        mock_ssl_cls.assert_called_once_with("smtp.testserver.com", 465, timeout=10)
+        mock_server.login.assert_called_once_with("ssluser@testserver.com", "sslpass123")
+        mock_server.send_message.assert_called_once()
+
+
+def test_email_service_smtp_auth_failure_handling(monkeypatch):
+    """Verify EmailService handles SMTPAuthenticationError safely and returns False without leaking credentials."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.testserver.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 587)
+    monkeypatch.setattr(settings, "SMTP_TLS", False)
+    monkeypatch.setattr(settings, "SMTP_SSL", False)
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "invalid_user")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "bad_password")
+
+    mock_server = MagicMock()
+    mock_server_context = MagicMock()
+    mock_server_context.__enter__.return_value = mock_server
+    mock_server.login.side_effect = smtplib.SMTPAuthenticationError(535, b"5.7.8 Username and Password not accepted.")
+
+    with patch("smtplib.SMTP", return_value=mock_server_context):
+        success = EmailService.send_password_reset_email("target@example.com", "https://careerlens.io/reset-password?token=abc")
+        assert success is False
+
+
+def test_email_service_network_timeout_handling(monkeypatch):
+    """Verify EmailService handles socket timeout safely without crashing."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.testserver.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 587)
+
+    with patch("smtplib.SMTP", side_effect=socket.timeout("Connection timed out")):
+        success = EmailService.send_password_reset_email("target@example.com", "https://careerlens.io/reset-password?token=abc")
+        assert success is False
+
+
+def test_email_service_unconfigured_production_returns_false(monkeypatch):
+    """Verify unconfigured SMTP in production returns False without fake dispatch."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+
+    success = EmailService.send_password_reset_email("target@example.com", "https://careerlens.io/reset-password?token=abc")
+    assert success is False
+
+
+def test_forgot_password_api_preserves_anti_enumeration_on_smtp_failure(monkeypatch):
+    """
+    Verify API returns generic 200 message even when EmailService fails/returns False,
+    ensuring external attackers cannot probe email existence or service health.
+    """
+    monkeypatch.setattr(EmailService, "send_password_reset_email", lambda to_email, reset_url: False)
+
+    res = client.post("/api/v1/auth/forgot-password", json={"identifier": "student@careerlens.io"})
+    assert res.status_code == 200
+    assert res.json()["message"] == "If an account exists with these details, a password reset link has been sent to the registered email address."
+
