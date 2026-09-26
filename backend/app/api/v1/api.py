@@ -24,3 +24,7 @@ api_router.include_router(chat.router, prefix="/chat", tags=["Bilingual AI Caree
 api_router.include_router(recruiter.router, prefix="/recruiter", tags=["Company / Recruiter Discovery"])
 api_router.include_router(college.router, prefix="/college", tags=["College / TPO Placement Analytics"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Platform Administrator & Governance"])
+
+@api_router.get("/health")
+def api_v1_health():
+    return {"status": "healthy", "service": "CareerLens API v1"}
