@@ -36,6 +36,53 @@ CareerLens is a verifiable talent platform connecting students, companies, and u
 
 ---
 
+## 📸 Project Screenshots
+
+Explore CareerLens's production user interfaces, verified multi-tier trust engines, and AI-powered workflows captured live from the running application:
+
+### Authentication
+*1-Click Evaluation Presets, secure login, and multi-role credential entry.*
+
+![Login & Authentication](screenshots/01-login.png)
+
+### Student Experience
+*Student placement readiness dashboard, academic profile, multi-format resume parsing with standardized skill extraction, 4-tier forensic certificate audit modal, and verified recruiter credibility profile.*
+
+![Student Dashboard](screenshots/02-student-dashboard.png)
+
+![Student Profile](screenshots/03-student-profile.png)
+
+![Resume Upload & Extracted Skills](screenshots/04-resume-upload.png)
+
+![4-Tier Certificate Verification Audit](screenshots/05-certificate-verification.png)
+
+![Verified Student Credibility Profile](screenshots/06-verified-profile.png)
+
+### AI & Career Intelligence
+*Curated internship listings with fit tags, explainable transparent match scoring breakdown, 4-week actionable sprint roadmaps, and bilingual Hinglish AI career counselor.*
+
+![Job & Internship Listings](screenshots/07-job-listings.png)
+
+![Explainable Match Scoring Breakdown](screenshots/08-job-matching.png)
+
+![4-Week Actionable Learning Roadmap](screenshots/09-skill-roadmap.png)
+
+![Bilingual AI Career Counselor](screenshots/10-ai-counselor.png)
+
+### Recruiter Dashboard
+*Zero-fraud candidate discovery portal with trust badge filtering, credential audit inspectability, and placement pipeline metrics.*
+
+![Recruiter Dashboard & Candidate Discovery](screenshots/11-recruiter-dashboard.png)
+
+### College & Admin Dashboards
+*Institutional TPO analytics portal for batch placement readiness, department benchmarks, and platform administration governance console.*
+
+![College & TPO Placement Analytics](screenshots/12-college-dashboard.png)
+
+![Platform Admin Governance Console](screenshots/13-admin-dashboard.png)
+
+---
+
 ## 🏗️ System Architecture
 
 ```mermaid
