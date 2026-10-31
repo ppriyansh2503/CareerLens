@@ -85,7 +85,7 @@ def test_recruiter_and_college_approval_flow(tokens):
     reg_rec = client.post("/api/v1/auth/register", json={
         "full_name": "Pending Recruiter Test",
         "email": unique_email,
-        "password": "password123",
+        "password": "Password123!",
         "role": "recruiter",
         "company_name": "Pending HR Ltd"
     })
@@ -133,7 +133,7 @@ def test_recruiter_and_college_approval_flow(tokens):
     reg_col = client.post("/api/v1/auth/register", json={
         "full_name": "Dean Placement",
         "email": col_email,
-        "password": "password123",
+        "password": "Password123!",
         "role": "college_admin",
         "college_name": "National Engineering Institute"
     })
@@ -142,7 +142,7 @@ def test_recruiter_and_college_approval_flow(tokens):
     assert reg_col.json()["approval_status"] == "PENDING"
 
     # Pending college cannot login
-    col_login_fail = client.post("/api/v1/auth/login", json={"email": col_email, "password": "password123"})
+    col_login_fail = client.post("/api/v1/auth/login", json={"email": col_email, "password": "Password123!"})
     assert col_login_fail.status_code == 403
 
     # Admin approves college
@@ -155,7 +155,7 @@ def test_recruiter_and_college_approval_flow(tokens):
     assert approve_col.json()["approval_status"] == "APPROVED"
 
     # College can now log in
-    col_login_ok = client.post("/api/v1/auth/login", json={"email": col_email, "password": "password123"})
+    col_login_ok = client.post("/api/v1/auth/login", json={"email": col_email, "password": "Password123!"})
     assert col_login_ok.status_code == 200
     assert col_login_ok.json()["approval_status"] == "APPROVED"
 

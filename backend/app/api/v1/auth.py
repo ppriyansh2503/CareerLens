@@ -1,15 +1,18 @@
+from typing import Optional
 import secrets
 import hashlib
 import logging
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_user, reusable_oauth2
 from app.core.config import settings
-from app.core.security import create_access_token, verify_password, get_password_hash
+from app.core.security import create_access_token, verify_password, get_password_hash, hash_token
+from app.core.limiter import limiter
 from app.models.user import User
 from app.models.student import StudentProfile
 from app.models.password_reset_token import PasswordResetToken
+from app.models.revoked_token import RevokedToken
 from app.schemas.auth import (
     UserRegister,
     UserLogin,
@@ -25,7 +28,8 @@ logger = logging.getLogger("careerlens.auth")
 router = APIRouter()
 
 @router.post("/register", response_model=Token)
-def register(user_in: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, user_in: UserRegister, db: Session = Depends(get_db)):
     email = user_in.email.strip().lower()
     existing = db.query(User).filter(User.email == email).first()
     if existing:
@@ -83,7 +87,8 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
     }
 
 @router.post("/login", response_model=Token)
-def login(login_in: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def login(request: Request, login_in: UserLogin, db: Session = Depends(get_db)):
     identifier = login_in.email.strip()
     user = db.query(User).filter(
         (User.email == identifier.lower()) | (User.phone_number == identifier)
@@ -122,7 +127,8 @@ def login(login_in: UserLogin, db: Session = Depends(get_db)):
     }
 
 @router.post("/forgot-password", response_model=MessageResponse)
-def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/hour")
+def forgot_password(request: Request, req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
     Forgot Password request.
     Accepts registered Email OR Phone Number.
@@ -178,12 +184,13 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     return {"message": generic_msg}
 
 @router.post("/reset-password", response_model=MessageResponse)
-def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/hour")
+def reset_password(request: Request, req: ResetPasswordRequest, db: Session = Depends(get_db)):
     """
     Reset Password using secure single-use token.
     Validations:
     - Token validity, expiration, and single-use state.
-    - Minimum 6 characters and password matching.
+    - Password strength and password matching.
     - Preserves user role and approval_status without modification.
     """
     raw_token = req.token.strip() if req.token else ""
@@ -196,8 +203,8 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     if new_pwd != confirm_pwd:
         raise HTTPException(status_code=400, detail="Passwords do not match.")
 
-    if len(new_pwd) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+    if len(new_pwd) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
 
     token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
     reset_record = db.query(PasswordResetToken).filter(
@@ -223,6 +230,26 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Password reset successfully. Please log in with your new password."}
+
+@router.post("/logout", response_model=MessageResponse)
+def logout(
+    request: Request,
+    token: Optional[str] = Depends(reusable_oauth2),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Invalidate the current session's JWT token.
+    Stores the SHA-256 token hash in the revoked_tokens blacklist.
+    """
+    if token:
+        token_h = hash_token(token)
+        existing = db.query(RevokedToken).filter(RevokedToken.token_hash == token_h).first()
+        if not existing:
+            revocation = RevokedToken(token_hash=token_h)
+            db.add(revocation)
+            db.commit()
+    return {"message": "Logged out successfully."}
 
 @router.get("/me", response_model=UserOut)
 def get_current_user_info(current_user: User = Depends(get_current_user)):

@@ -6,8 +6,9 @@
 [![React](https://img.shields.io/badge/Frontend-React_18_+_Vite-61DAFB.svg?logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC.svg?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![Gemini](https://img.shields.io/badge/AI_Engine-Google_Gemini_2.5_Flash-8E75C2.svg?logo=google&logoColor=white)](https://ai.google.dev)
-[![Tests](https://img.shields.io/badge/Tests-Passing_9%2F9-brightgreen.svg)]()
+[![Docker](https://img.shields.io/badge/Docker-Non--Root_Hardened-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com)
+[![Tests](https://img.shields.io/badge/Pytest-82%2F82_Passed-brightgreen.svg)]()
+[![E2E](https://img.shields.io/badge/E2E_Journeys-55%2F55_Passed-brightgreen.svg)]()
 
 ---
 
@@ -15,7 +16,7 @@
 
 In campus recruiting and entry-level technical hiring:
 1. **Resume Fraud & Exaggeration**: Up to **70% of resumes** contain unverified claims, forged certificates, or exaggerated skills.
-2. **Black-Box Match Percentages**: Conventional platforms output an arbitrary percentage score (e.g. *"You are an 85% match"*) without explaining **why** or **what is missing**.
+2. **Black-Box Match Percentages**: Conventional platforms output an arbitrary percentage score without explaining **why** or **what is missing**.
 3. **Language Barriers**: Talented students from diverse non-metro backgrounds struggle with English-only career advisory tools.
 4. **Lack of Institutional Visibility**: College Training & Placement Offices (TPOs) lack real-time visibility into batch skill deficits and placement readiness benchmarks.
 
@@ -26,12 +27,12 @@ In campus recruiting and entry-level technical hiring:
 CareerLens is a verifiable talent platform connecting students, companies, and universities with an impenetrable trust layer:
 
 - 🛡️ **4-Tier Credential Verification Engine**: SHA-256 duplicate hashing, QR authority lookup, OCR name consistency matching, and digital image Error Level Analysis (ELA) + PDF forensic tamper detection.
-- 🎯 **Explainable Match Scoring**: Mathematical decomposition:
+- 🎯 **Explainable Match Scoring**:
   $$\text{Match Score} = (0.45 \times \text{Verified Skills}) + (0.20 \times \text{Resume Skills}) + (0.15 \times \text{Academic Fit}) + (0.20 \times \text{Credential Depth})$$
 - 🗺️ **4-Week Actionable Skill-Gap Roadmaps**: Automatically curates weekly sprints with hands-on projects to elevate student match scores to 90%+.
-- 🤖 **Bilingual AI Career Counselor**: Native support for **English**, **Hindi (हिंदी)**, and colloquial **Hinglish** (*"Mera match score 95% kaise hoga?"*), grounded directly in the student's verified profile data.
+- 🤖 **Bilingual AI Career Counselor**: Native support for **English**, **Hindi (हिंदी)**, and colloquial **Hinglish**, grounded directly in the student's verified profile data.
 - 💼 **Company Recruiter Discovery Portal**: Zero-fraud hiring portal allowing recruiters to filter exclusively by Gold/Silver verified badges and inspect forensic audit logs.
-- 🏛️ **College / TPO Analytics Portal**: Live cohort analytics, batch placement readiness index (e.g., 78.2% ready), department benchmarks, and critical batch skill deficit reports (e.g., 74% students missing Redis caching).
+- 🏛️ **College / TPO Analytics Portal**: Live cohort analytics, batch placement readiness index, department benchmarks, and critical batch skill deficit reports.
 
 ---
 
@@ -39,137 +40,180 @@ CareerLens is a verifiable talent platform connecting students, companies, and u
 
 ```mermaid
 flowchart TB
-    subgraph Client ["Frontend Client (React + TypeScript + Tailwind CSS)"]
+    subgraph Client ["Frontend Client (React + TypeScript + Vite)"]
         direction TB
         SP["Student Portal (Resume, Certs, Matches, Roadmap, Chat)"]
         RP["Recruiter Portal (Candidate Discovery, Verified Badges)"]
         CP["College TPO Portal (Batch Readiness & Skill Deficits)"]
+        AP["Platform Admin Portal (Approvals & Audit Logs)"]
     end
 
-    subgraph API ["FastAPI Gateway & Core Logic"]
-        Auth["JWT Auth & Instant Role Switcher"]
+    subgraph Gateway ["Nginx Reverse Proxy (Non-Root UID 101)"]
+        Nginx["Nginx Unprivileged (Port 8080)"]
+    end
+
+    subgraph API ["FastAPI Application (Non-Root UID 10001)"]
+        Auth["JWT Auth (60m) & Revocation Blacklist"]
+        Limiter["Slowapi IP Rate Limiter"]
         VEngine["4-Tier Trust & Verification Engine"]
         Matcher["Weighted Explainable Matcher & Roadmap Generator"]
         ChatEngine["Bilingual NLP & Career Counselor"]
+        EmailService["Pluggable Transactional Email Service"]
     end
 
-    subgraph Storage ["Data & Storage Layer"]
-        DB[("Relational Database (SQLite / PostgreSQL)")]
-        Media["Local Upload Storage (/uploads/resumes & /uploads/certificates)"]
+    subgraph Storage ["Storage & Persistence Layer"]
+        DB[("SQLite WAL Mode (ACID Concurrency)")]
+        StorageBackend["Modular StorageBackend (LocalStorageBackend)"]
+        Media["Isolated Upload Storage (/resumes & /certificates)"]
     end
 
-    Client --> API
+    Client --> Nginx
+    Nginx --> API
     API --> DB
-    API --> Media
+    API --> StorageBackend
+    StorageBackend --> Media
+    API --> EmailService
 ```
 
 ---
 
-## 🛡️ 4-Tier Verification Engine: How It Works
+## 🔒 Production Security Hardening
 
-| Tier | Protocol | Detection Mechanism |
-| :--- | :--- | :--- |
-| **Tier 1** | **SHA-256 Hash Integrity** | Computes unique cryptographic digest. Flags duplicate certificate files registered across different student profiles. |
-| **Tier 2** | **QR Authority Scanner** | Decodes embedded 2D QR codes using computer vision and verifies destination URI against recognized certificate authorities (AWS, Coursera, NPTEL, edX). |
-| **Tier 3** | **OCR Entity & Name Matching** | Extracts recipient name, issuer, issue date, and credential ID. Executes fuzzy token distance against student registered name to prevent stolen credentials. |
-| **Tier 4** | **Forensic Tamper Detection** | Runs **Error Level Analysis (ELA)** on image pixels to detect compression discontinuities when names or dates are pasted over existing certs. Inspects PDF authoring metadata for suspicious editing tools (Canva, Photoshop). |
+| Security Domain | Implementation Details |
+| :--- | :--- |
+| **Authentication & JWT** | Access tokens expire in **60 minutes**. Token revocation endpoint (`POST /api/v1/auth/logout`) stores SHA-256 token hashes in the `revoked_tokens` table. Blacklisted tokens receive HTTP 401. |
+| **Password Policy** | Minimum 8 characters with at least 1 uppercase letter, 1 lowercase letter, 1 digit, and 1 special character enforced on registration and reset. |
+| **Rate Limiting** | `slowapi` enforces per-IP limits: Login (20/min), Register (5/min), Forgot/Reset Password (5/hr), Chat (15/min), Uploads (5/min). Exceeding limits returns **HTTP 429 Too Many Requests**. |
+| **CORS Restriction** | Strict whitelist derived from `FRONTEND_URL` and `BACKEND_CORS_ORIGINS`. Unauthorized origins are denied cross-origin access. |
+| **Security Headers** | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and production `Strict-Transport-Security` (HSTS). |
+| **File Upload Security** | Magic byte checks (`%PDF-` for resumes, image format validation for certificates), 10 MB file size limit (HTTP 413), and UUID filenames. Direct `/uploads` mount is disabled in favor of authenticated, RBAC-checked streaming endpoints. |
+| **Test DB Isolation** | Automated assertion guard in `database.py` prevents tests from connecting to `careerlens.db`. Pytest executes against temporary `careerlens_test.db` and `/tmp` uploads with complete session teardown. |
+| **Container Hardening** | Backend runs as non-root `appuser` (**UID 10001**). Frontend runs as non-root `nginx` (**UID 101**) on unprivileged port 8080. |
 
 ---
 
-## 🚀 Quickstart Guide
+## 📦 Modular Storage Abstraction
+
+All file operations route through a clean storage abstraction in `backend/app/services/storage.py`:
+
+- **Interface (`StorageBackend`)**: Defines standard `save()`, `read()`, `get_path()`, `exists()`, and `delete()` contracts.
+- **Implementation (`LocalStorageBackend`)**: Safely scopes files within `UPLOAD_DIR`, prevents path traversal, and manages `/resumes` and `/certificates` directories.
+- **Future Cloud-Ready**: Ready for cloud providers (AWS S3, Google Cloud Storage) by implementing the `StorageBackend` contract without altering endpoint logic.
+
+---
+
+## 💾 Database Backup & Restore Automation
+
+### 1. Live Non-Blocking Backup
+Performs online backups using SQLite's backup API without blocking active readers or writers:
+```bash
+./scripts/backup_database.sh
+```
+- Validates backup with `PRAGMA integrity_check;`.
+- Automatically retains the 14 most recent backups and prunes older archives.
+- Backups are stored in `backups/` (gitignored).
+
+### 2. Verified Safe Restore
+Restores a backup to a target database with full integrity verification:
+```bash
+# Safe restore to a custom or scratch target:
+./scripts/restore_database.sh backups/careerlens_backup_YYYYMMDD_HHMMSS.db /path/to/target.db
+
+# Live production database restore (requires explicit confirmation flag):
+./scripts/restore_database.sh backups/careerlens_backup_YYYYMMDD_HHMMSS.db backend/careerlens.db --confirm-live-overwrite
+```
+- Restores targeting the live database create a timestamped safety backup first.
+- Safely removes stale SQLite WAL/SHM files during restoration.
+
+---
+
+## 🚀 Docker Deployment
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 18+ and npm
-- Git
+- Docker Engine 24+ and Docker Compose v2+
 
-### 1. Clone the Repository
+### 1. Start Full Stack
 ```bash
-git clone https://github.com/your-username/CareerLens.git
-cd CareerLens
+docker compose up -d
 ```
+- Frontend: `http://localhost:3000` (mapped to non-root Nginx port 8080)
+- Backend API: `http://localhost:8000`
+- API Documentation: `http://localhost:8000/docs`
 
-### 2. Backend Setup
+### 2. Verify Container Health & Non-Root UIDs
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# Check service health:
+docker compose ps
 
-# Run Unit & Integration Tests (9 passed)
-pytest
-
-# Start Backend Server
-uvicorn app.main:app --reload --port 8000
+# Verify non-root container users:
+docker exec careerlens-backend-1 id    # uid=10001(appuser)
+docker exec careerlens-frontend-1 id   # uid=101(nginx)
 ```
-Backend API will be running at: `http://localhost:8000`  
-Swagger API Docs available at: `http://localhost:8000/docs`
-
-### 3. Frontend Setup
-In a new terminal:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Frontend will be running at: `http://localhost:3000`
 
 ---
 
-## 🧪 5-Minute Hackathon Demo Script (For Judges)
+## ⚙️ Environment Variables Reference
 
-1. **Open Platform (`http://localhost:3000`)**:
-   - Show the problem statement and the 4-tier verification protocol overview.
-2. **Student Dashboard (Aarav Sharma)**:
-   - View Placement Readiness Gauge (**88.5% - Ready to Place**).
-   - Notice verified **AWS Certified Developer (Gold Badge)** and **React Specialization (Gold Badge)**.
-3. **Test Certificate Verification (`/student/certificates`)**:
-   - Click the green button **"⚡ Test 1: Valid AWS (Gold Badge)"** $\rightarrow$ Watch the 4-tier inspection run in 1.5 seconds $\rightarrow$ **GOLD BADGE** issued and Cloud skills auto-verified.
-   - Click the red button **"🚨 Test 2: Tampered Cert (Flagged)"** $\rightarrow$ Watch Error Level Analysis catch the alteration $\rightarrow$ **FLAGGED** status with detailed tamper report.
-4. **Inspect Forensic Audit**:
-   - Click **"Forensic Audit"** to view SHA-256 fingerprint, QR authority payload, OCR recipient cross-validation, and forensic ELA report.
-5. **Explainable Match Scoring (`/student/jobs`)**:
-   - Open **Cloud Software Engineer Intern** at TechCorp (**86% Match**).
-   - Click **"Explain Score & Gap"** $\rightarrow$ Show the mathematical breakdown (45% verified skills, 20% resume skills, 15% academic fit, 20% depth).
-   - Show green verified skill pills and red missing skill pills (Redis, Docker).
-6. **Generate 4-Week Roadmap**:
-   - Click **"Bridge Gap: 4-Week Roadmap"** $\rightarrow$ Show personalized 4-week sprint projecting match score from 76% to 96%.
-7. **Bilingual AI Counselor (`/student/chat`)**:
-   - Ask in Hinglish: `Mera match score 95% kaise hoga?`
-   - Ask in Hindi: `रिज्यूमे में कौन सी स्किल्स जोड़नी चाहिए?`
-   - Watch CareerLens AI answer in the user's native tongue while grounded in their verified AWS badge!
-8. **Switch to Recruiter View**:
-   - In navbar, click Demo Switcher $\rightarrow$ **Recruiter View (Sneha Rao @ TechCorp)**.
-   - Filter candidates by **"🥇 GOLD ONLY"** $\rightarrow$ See verified candidates rise to the top.
-   - Click **"Credibility Card"** to inspect proof before 1-click interviewing.
-9. **Switch to College TPO View**:
-   - In navbar, switch to **College TPO View (Dr. Rajiv Kapoor @ IIIT)**.
-   - View cohort placement readiness (78.2%), fraud prevention rate (99.4%), and batch skill deficits.
+Store secrets strictly in `.env` or your cloud secrets manager. Never commit `.env` files.
+
+| Variable Name | Purpose | Default / Example |
+| :--- | :--- | :--- |
+| `SECRET_KEY` | Cryptographic secret for signing JWT access tokens | Random 256-bit hex |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token lifespan | `60` |
+| `DATABASE_URL` | SQLite or PostgreSQL connection string | `sqlite:///./careerlens.db` |
+| `UPLOAD_DIR` | Directory for stored files | `uploads` |
+| `GEMINI_API_KEY` | Google Gemini API key for AI counselor | API key from Google AI Studio |
+| `GEMINI_MODEL` | Gemini LLM model name | `gemini-2.5-flash` |
+| `FRONTEND_URL` | Allowed frontend origin for CORS and password reset links | `http://localhost:3000` |
+| `BACKEND_CORS_ORIGINS` | Comma-separated list of additional allowed origins | `http://localhost:3000,http://localhost:5173` |
+| `ENVIRONMENT` | Deployment environment (`development` or `production`) | `production` |
+| `PLATFORM_ADMIN_EMAIL` | Platform administrator account email | `superadmin@careerlens.io` |
+| `PLATFORM_ADMIN_PASSWORD` | Platform administrator password (for deployment scripts) | Secure high-entropy password |
+| `PLATFORM_ADMIN_PASSWORD_HASH` | Bcrypt hash for platform administrator | Precomputed bcrypt hash |
+| `RESEND_API_KEY` | (Optional) Resend API token for transactional emails | `re_...` |
+| `SENDGRID_API_KEY` | (Optional) SendGrid API key for transactional emails | `SG....` |
+| `SMTP_HOST` | (Optional) SMTP relay host | e.g. `smtp.sendgrid.net` |
+| `SMTP_PORT` | (Optional) SMTP relay port | `587` |
+| `SMTP_USERNAME` | (Optional) SMTP relay username | `apikey` |
+| `SMTP_PASSWORD` | (Optional) SMTP relay password / token | Provider API token |
+| `SMTP_FROM` | Sender email address | `noreply@careerlens.io` |
 
 ---
 
-## 📁 Repository Structure
+## ⚠️ Known Limitations & External Requirements
 
-```
-CareerLens/
-├── backend/
-│   ├── app/
-│   │   ├── api/v1/          # Modular REST endpoints (auth, certs, jobs, matching, chat)
-│   │   ├── core/            # Config, security (JWT/bcrypt), database engine
-│   │   ├── models/          # SQLAlchemy relational models
-│   │   ├── schemas/         # Pydantic validation schemas
-│   │   ├── services/        # 4-tier verifier, ELA tamper detector, matcher, Gemini AI
-│   │   ├── seed/            # Realistic demo database seeder
-│   │   └── main.py          # FastAPI application entrypoint
-│   ├── tests/               # Pytest suite (Auth, Matching, Verification)
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/      # TrustBadge, VerificationModal, ExplainableMatchModal, RoadmapModal
-│   │   ├── pages/           # Student, Recruiter, College, Landing
-│   │   ├── lib/             # API client, TypeScript types, AuthContext
-│   │   └── App.tsx          # Client-side routing
-│   └── package.json
-├── docs/                    # Architecture, API Docs, and Verification Engine deep-dives
-└── docker-compose.yml
+### Real Transactional Email Delivery
+- **Status**: `BLOCKED — PROVIDER CREDENTIALS REQUIRED`
+- The `EmailService` is fully implemented and tested to support HTTP transactional providers (**Resend**, **SendGrid**) and authenticated **SMTP relays**.
+- In local development, password reset links are recorded in an in-memory test inbox and logged cleanly without exposing secrets.
+- In production, real email delivery to external user mailboxes requires valid provider credentials (`RESEND_API_KEY`, `SENDGRID_API_KEY`, or an authorized enterprise SMTP relay).
+
+---
+
+## 🧪 Demo Accounts for Evaluation
+
+| Role | Email | Password | Description |
+| :--- | :--- | :--- | :--- |
+| **Student** | `student@careerlens.io` | `password123` | Aarav Sharma (IIIT) — 100% readiness, verified AWS & React credentials |
+| **Recruiter** | `recruiter@careerlens.io` | `password123` | Sneha Rao (TechCorp) — candidate filtering, verification audits, job posting |
+| **College / TPO** | `college@careerlens.io` | `password123` | Dr. Rajiv Kapoor (IIIT) — cohort analytics, batch readiness distribution |
+| **Platform Admin** | `superadmin@careerlens.io` | *(Rotated)* | Dedicated admin for credential approvals, audit review, and overrides |
+
+*(Note: In production environments, demo switching via `/api/v1/auth/demo-switch` is permanently disabled with HTTP 404. All demo accounts must authenticate via `POST /api/v1/auth/login`.)*
+
+---
+
+## 🧪 Test & Verification Results
+
+```text
+Backend Test Suite (Pytest):
+======================= 82 passed, 2 warnings in 14.50s =======================
+
+End-to-End User Journeys:
+================================================================================
+E2E TEST SUMMARY: 55 / 55 PASSED (0 FAILED)
+================================================================================
+
+Frontend Production Build:
+✓ built in 1.10s (0 errors)
 ```

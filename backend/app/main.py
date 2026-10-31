@@ -1,6 +1,11 @@
 import os
-from fastapi import FastAPI, Depends
+import logging
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from app.core.limiter import limiter
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import Base, engine, SessionLocal
@@ -9,6 +14,8 @@ from app.models.user import User
 from app.api.v1.files import get_uploaded_file
 from app.api.v1.api import api_router
 from app.seed.seed_data import seed_database_if_empty
+
+logger = logging.getLogger("careerlens.main")
 
 from contextlib import asynccontextmanager
 
@@ -69,14 +76,41 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Set up CORS
+# Attach rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Set up CORS with explicit trusted origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Open for hackathon dev ease
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
+
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if getattr(settings, "ENVIRONMENT", "development").lower() == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+# Global unhandled exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    # Pass through HTTPExceptions handled by FastAPI
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    logger.error(f"[CareerLens Unhandled Exception] {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please try again later.", "code": "INTERNAL_SERVER_ERROR"}
+    )
 
 # Authenticated access for uploaded files (replaces insecure public StaticFiles mount)
 @app.get("/uploads/{category}/{filename}", tags=["Authenticated Uploads"])

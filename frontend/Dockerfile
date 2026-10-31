@@ -8,14 +8,14 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
+FROM nginxinc/nginx-unprivileged:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 3000
+EXPOSE 8080
 
-# Simple nginx configuration
+# Simple unprivileged nginx configuration
 RUN echo 'server { \
-    listen 3000; \
-    listen [::]:3000; \
+    listen 8080; \
+    listen [::]:8080; \
     client_max_body_size 25M; \
     location / { \
         root /usr/share/nginx/html; \

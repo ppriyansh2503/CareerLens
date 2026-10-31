@@ -3,20 +3,24 @@ import io
 import uuid
 from typing import List
 from PIL import Image
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.models.user import User
 from app.models.student import StudentProfile
 from app.models.certificate import Certificate
 from app.schemas.certificate import CertificateOut, VerificationAuditDetail
 from app.services.certificate_verifier import CertificateVerifier
+from app.services.storage import storage_backend
 
 router = APIRouter()
 
 @router.post("/upload")
+@limiter.limit("5/minute")
 async def upload_certificate(
+    request: Request,
     file: UploadFile = File(...),
     title: str = Form(...),
     issuing_org: str = Form(...),
@@ -65,12 +69,9 @@ async def upload_certificate(
                 detail="Invalid file format or corrupted image file."
             )
 
-    # Generate secure UUID filename
+    # Generate secure UUID filename using modular storage backend
     file_name = f"cert_{profile.id}_{uuid.uuid4().hex}{ext}"
-    save_path = os.path.join(settings.UPLOAD_DIR, "certificates", file_name)
-
-    with open(save_path, "wb") as f:
-        f.write(raw_bytes)
+    save_path = storage_backend.save("certificates", file_name, raw_bytes)
 
     # Run Multi-Tier Verification
     result = CertificateVerifier.verify_certificate(

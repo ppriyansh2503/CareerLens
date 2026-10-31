@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.models.student import StudentProfile
 from app.models.certificate import Certificate
+from app.services.storage import storage_backend
 
 router = APIRouter()
 
@@ -59,20 +60,16 @@ def get_uploaded_file(
     if category not in ["resumes", "certificates"]:
         raise HTTPException(status_code=404, detail="Invalid file category")
 
-    # Strict path traversal check
     clean_filename = os.path.basename(filename)
-    if not clean_filename or clean_filename != filename or ".." in filename or "/" in filename or "\\" in filename:
+    if not clean_filename or clean_filename != filename:
         raise HTTPException(status_code=400, detail="Invalid file path")
 
-    category_dir = os.path.abspath(os.path.join(settings.UPLOAD_DIR, category))
-    file_path = os.path.abspath(os.path.join(category_dir, clean_filename))
-
-    # Ensure resolved path is strictly within category_dir
-    if not file_path.startswith(category_dir):
+    try:
+        if not storage_backend.exists(category, clean_filename):
+            raise HTTPException(status_code=404, detail="Requested file not found")
+        file_path = storage_backend.get_path(category, clean_filename)
+    except ValueError:
         raise HTTPException(status_code=400, detail="Path traversal detected")
-
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Requested file not found")
 
     # Authorize based on category and ownership
     if category == "resumes":
@@ -124,9 +121,12 @@ def download_student_resume(
         )
 
     clean_filename = os.path.basename(student.resume_file_url)
-    file_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, "resumes", clean_filename))
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Resume file not found on server")
+    try:
+        if not storage_backend.exists("resumes", clean_filename):
+            raise HTTPException(status_code=404, detail="Resume file not found on server")
+        file_path = storage_backend.get_path("resumes", clean_filename)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid file path")
 
     media_type, _ = mimetypes.guess_type(file_path)
     return FileResponse(file_path, media_type=media_type or "application/pdf", filename=clean_filename)
@@ -148,13 +148,15 @@ def download_certificate_file(
         )
 
     clean_filename = os.path.basename(cert.file_path)
-    file_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, "certificates", clean_filename))
-    if not os.path.exists(file_path):
-        # Fallback to direct file_path if stored as full path
-        if os.path.exists(cert.file_path):
+    try:
+        if storage_backend.exists("certificates", clean_filename):
+            file_path = storage_backend.get_path("certificates", clean_filename)
+        elif os.path.exists(cert.file_path):
             file_path = cert.file_path
         else:
             raise HTTPException(status_code=404, detail="Certificate file not found on server")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid file path")
 
     media_type, _ = mimetypes.guess_type(file_path)
     return FileResponse(file_path, media_type=media_type or "application/octet-stream", filename=clean_filename)

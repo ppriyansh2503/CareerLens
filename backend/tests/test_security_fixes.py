@@ -479,3 +479,116 @@ def test_certificate_audit_rbac_protection(recruiter_auth, admin_auth):
 
     finally:
         db.close()
+
+
+# ============================================================================
+# PRODUCTION HARDENING: TOKEN REVOCATION & LOGOUT
+# ============================================================================
+def test_token_revocation_and_logout():
+    # 1. Obtain active token via demo switch
+    res = client.post("/api/v1/auth/demo-switch/student")
+    assert res.status_code == 200
+    token = res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Verify token is active
+    active_res = client.get("/api/v1/profile/student", headers=headers)
+    assert active_res.status_code == 200
+
+    # 3. Call logout endpoint to invalidate token
+    logout_res = client.post("/api/v1/auth/logout", headers=headers)
+    assert logout_res.status_code == 200
+    assert "Logged out successfully" in logout_res.json()["message"]
+
+    # 4. Verify subsequent request with same token is rejected with 401
+    revoked_res = client.get("/api/v1/profile/student", headers=headers)
+    assert revoked_res.status_code == 401
+    assert "revoked" in revoked_res.json()["detail"].lower()
+
+
+# ============================================================================
+# PRODUCTION HARDENING: PASSWORD STRENGTH POLICY
+# ============================================================================
+def test_password_strength_enforcement():
+    base_payload = {
+        "full_name": "Policy Test User",
+        "role": "student",
+        "college_name": "Test University"
+    }
+
+    # Weak passwords to test
+    weak_cases = [
+        ("short", "Short password (<8 chars)"),
+        ("nouppercase123!", "Missing uppercase letter"),
+        ("NOLOWERCASE123!", "Missing lowercase letter"),
+        ("NoNumbersHere!", "Missing number"),
+        ("NoSpecialChar123", "Missing special character")
+    ]
+
+    for weak_pwd, desc in weak_cases:
+        email = f"policy_{uuid.uuid4().hex[:8]}@test.com"
+        payload = {**base_payload, "email": email, "password": weak_pwd}
+        res = client.post("/api/v1/auth/register", json=payload)
+        assert res.status_code == 422, f"Expected 422 for weak password case: {desc}"
+
+    # Strong password succeeds
+    strong_email = f"policy_{uuid.uuid4().hex[:8]}@test.com"
+    strong_payload = {**base_payload, "email": strong_email, "password": "SecurePassword#2026!"}
+    success_res = client.post("/api/v1/auth/register", json=strong_payload)
+    assert success_res.status_code == 200
+    assert success_res.json()["approval_status"] == "PENDING"
+
+
+# ============================================================================
+# PRODUCTION HARDENING: HTTP SECURITY HEADERS
+# ============================================================================
+def test_http_security_headers_present():
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.headers.get("x-content-type-options") == "nosniff"
+    assert res.headers.get("x-frame-options") == "DENY"
+    assert res.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+
+
+# ============================================================================
+# PRODUCTION HARDENING: CORS RESTRICTIONS
+# ============================================================================
+def test_cors_origins_headers():
+    # 1. Allowed origin gets Access-Control-Allow-Origin
+    res_allowed = client.options(
+        "/api/v1/jobs",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET"
+        }
+    )
+    assert res_allowed.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    # 2. Untrusted origin is denied CORS allow header
+    res_denied = client.options(
+        "/api/v1/jobs",
+        headers={
+            "Origin": "https://malicious-attacker.com",
+            "Access-Control-Request-Method": "GET"
+        }
+    )
+    assert res_denied.headers.get("access-control-allow-origin") != "https://malicious-attacker.com"
+
+
+# ============================================================================
+# PRODUCTION HARDENING: RATE LIMITING (HTTP 429)
+# ============================================================================
+def test_rate_limiter_triggers_429():
+    from app.core.limiter import limiter
+    prev_enabled = limiter.enabled
+    try:
+        limiter.enabled = True
+        # Login endpoint has limit of 20/minute
+        # Fire 25 rapid attempts
+        status_codes = []
+        for _ in range(25):
+            r = client.post("/api/v1/auth/login", json={"email": "nonexistent@test.com", "password": "BadPassword123!"})
+            status_codes.append(r.status_code)
+        assert 429 in status_codes, f"Expected HTTP 429 Too Many Requests in {status_codes}"
+    finally:
+        limiter.enabled = prev_enabled

@@ -1,6 +1,9 @@
+import json
 import smtplib
 import socket
 import logging
+import urllib.request
+import urllib.error
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import List, Dict, Any
@@ -11,9 +14,10 @@ logger = logging.getLogger("careerlens.email_service")
 class EmailService:
     """
     Email abstraction service for CareerLens.
-    Supports real SMTP delivery (STARTTLS / SSL) when configured via environment variables,
-    and safe development-only logging and test inspection without leaking
-    sensitive credentials or exposing tokens in production logs.
+    Supports transactional HTTP API providers (Resend, SendGrid),
+    real SMTP delivery (STARTTLS / SSL), and safe development-only
+    logging and test inspection without leaking sensitive credentials
+    or exposing tokens in production logs.
     """
     
     # In-memory storage for test verification and local development
@@ -22,9 +26,12 @@ class EmailService:
     @classmethod
     def is_configured(cls) -> bool:
         """
-        Check if the SMTP service is configured with a host.
+        Check if any email delivery provider is configured.
         """
-        return bool(settings.SMTP_HOST and settings.SMTP_HOST.strip())
+        has_smtp = bool(settings.SMTP_HOST and settings.SMTP_HOST.strip())
+        has_resend = bool(getattr(settings, "RESEND_API_KEY", "") and settings.RESEND_API_KEY.strip())
+        has_sendgrid = bool(getattr(settings, "SENDGRID_API_KEY", "") and settings.SENDGRID_API_KEY.strip())
+        return has_smtp or has_resend or has_sendgrid
 
     @classmethod
     def send_password_reset_email(cls, to_email: str, reset_url: str) -> bool:
@@ -79,13 +86,70 @@ class EmailService:
         if len(cls.latest_dev_emails) > 20:
             cls.latest_dev_emails.pop(0)
 
-        # 1. Real SMTP dispatch if configured
-        if cls.is_configured():
+        # 1. HTTP API Provider: Resend
+        if getattr(settings, "RESEND_API_KEY", "") and settings.RESEND_API_KEY.strip():
+            try:
+                payload = json.dumps({
+                    "from": settings.SMTP_FROM,
+                    "to": [to_email],
+                    "subject": subject,
+                    "text": text_content,
+                    "html": html_content
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://api.resend.com/emails",
+                    data=payload,
+                    headers={
+                        "Authorization": f"Bearer {settings.RESEND_API_KEY.strip()}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "CareerLens-Backend/1.0"
+                    },
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if 200 <= resp.status < 300:
+                        logger.info(f"[CareerLens Email Service] Successfully sent password reset email via Resend API to {to_email}")
+                        return True
+            except Exception as e:
+                logger.error(f"[CareerLens Email Service Error] Resend API dispatch failed: {e}")
+                return False
+
+        # 2. HTTP API Provider: SendGrid
+        if getattr(settings, "SENDGRID_API_KEY", "") and settings.SENDGRID_API_KEY.strip():
+            try:
+                payload = json.dumps({
+                    "personalizations": [{"to": [{"email": to_email}]}],
+                    "from": {"email": settings.SMTP_FROM},
+                    "subject": subject,
+                    "content": [
+                        {"type": "text/plain", "value": text_content},
+                        {"type": "text/html", "value": html_content}
+                    ]
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    data=payload,
+                    headers={
+                        "Authorization": f"Bearer {settings.SENDGRID_API_KEY.strip()}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "CareerLens-Backend/1.0"
+                    },
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if 200 <= resp.status < 300:
+                        logger.info(f"[CareerLens Email Service] Successfully sent password reset email via SendGrid API to {to_email}")
+                        return True
+            except Exception as e:
+                logger.error(f"[CareerLens Email Service Error] SendGrid API dispatch failed: {e}")
+                return False
+
+        # 3. Real SMTP dispatch if configured
+        if settings.SMTP_HOST and settings.SMTP_HOST.strip():
             if settings.SMTP_USERNAME and not (settings.SMTP_PASSWORD and settings.SMTP_PASSWORD.strip()):
                 logger.warning(
                     "[CareerLens Email Service] SMTP_USERNAME is set but SMTP_PASSWORD is empty. Real email cannot be dispatched."
                 )
-                print("[CareerLens Email Service] SMTP_USERNAME is set but SMTP_PASSWORD is empty. Real email cannot be dispatched.")
                 return False
 
             try:
@@ -115,30 +179,24 @@ class EmailService:
                         server.send_message(msg)
 
                 logger.info(f"[CareerLens Email Service] Successfully sent password reset email via SMTP to {to_email}")
-                print(f"[CareerLens Email Service] Successfully dispatched password reset email via SMTP to {to_email}")
                 return True
 
             except smtplib.SMTPAuthenticationError:
                 logger.error("[CareerLens Email Service Error] SMTP Authentication failed. Verify SMTP_USERNAME and SMTP_PASSWORD.")
-                print("[CareerLens Email Service Error] SMTP Authentication failed. Verify SMTP_USERNAME and SMTP_PASSWORD.")
                 return False
             except (smtplib.SMTPException, socket.timeout, OSError) as e:
                 logger.error(f"[CareerLens Email Service Error] Failed to send email via SMTP ({type(e).__name__}): {e}")
-                print(f"[CareerLens Email Service Error] Failed to send email via SMTP ({type(e).__name__}): {e}")
                 return False
             except Exception as e:
                 logger.error(f"[CareerLens Email Service Error] Unexpected error sending email ({type(e).__name__}): {e}")
-                print(f"[CareerLens Email Service Error] Unexpected error sending email ({type(e).__name__}): {e}")
                 return False
 
-        # 2. Unconfigured fallback
+        # 4. Unconfigured fallback
         is_production = settings.ENVIRONMENT.lower() == "production"
         if not is_production:
             logger.info(f"[CareerLens Dev Email] Password reset link for {to_email}: {reset_url}")
-            print(f"[CareerLens Dev Email] Password reset link for {to_email}: {reset_url}")
             return True
         else:
-            logger.warning("[CareerLens Email Service] SMTP is unconfigured (SMTP_HOST is empty). Real email cannot be dispatched.")
-            print("[CareerLens Email Service] SMTP is unconfigured (SMTP_HOST is empty). Real email cannot be dispatched.")
+            logger.warning("[CareerLens Email Service] Transactional email provider unconfigured. Real email delivery blocked: provider credentials required.")
             return False
 

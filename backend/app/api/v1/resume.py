@@ -1,20 +1,24 @@
 import os
 import uuid
 from typing import Dict, Any
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.models.user import User
 from app.models.student import StudentProfile
 from app.models.skill import Skill, StudentSkill
 from app.services.resume_parser import ResumeParser
 from app.services.skill_service import get_or_create_skill
+from app.services.storage import storage_backend
 
 router = APIRouter()
 
 @router.post("/upload")
+@limiter.limit("5/minute")
 async def upload_resume(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -48,12 +52,9 @@ async def upload_resume(
             detail="Invalid file format. Uploaded file is not a valid PDF document."
         )
 
-    # Save file with secure UUID filename
+    # Save file with secure UUID filename using modular storage backend
     file_name = f"resume_{profile.id}_{uuid.uuid4().hex}.pdf"
-    save_path = os.path.join(settings.UPLOAD_DIR, "resumes", file_name)
-    
-    with open(save_path, "wb") as buffer:
-        buffer.write(file_bytes)
+    save_path = storage_backend.save("resumes", file_name, bytes(file_bytes))
 
     # Parse resume
     parsed = ResumeParser.parse_resume(save_path)

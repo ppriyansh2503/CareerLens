@@ -5,7 +5,9 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.core.security import hash_token
 from app.models.user import User
+from app.models.revoked_token import RevokedToken
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login",
@@ -27,6 +29,16 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check if token has been revoked
+    token_h = hash_token(token)
+    revoked = db.query(RevokedToken).filter(RevokedToken.token_hash == token_h).first()
+    if revoked:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

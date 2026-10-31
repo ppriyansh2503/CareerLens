@@ -1,7 +1,8 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
+from app.core.limiter import limiter
 from app.models.user import User
 from app.models.student import StudentProfile
 from app.models.job import Job
@@ -13,7 +14,9 @@ from app.services.matching_engine import MatchingEngine
 router = APIRouter()
 
 @router.post("/message", response_model=ChatMessageOut)
+@limiter.limit("15/minute")
 def send_chat_message(
+    request: Request,
     msg_in: ChatMessageCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

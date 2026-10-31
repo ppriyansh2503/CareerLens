@@ -7,6 +7,7 @@ from app.models.application import Application
 from app.models.chat import ChatSession, ChatMessage
 from app.models.audit_log import AuditLog
 from app.models.password_reset_token import PasswordResetToken
+from app.models.revoked_token import RevokedToken
 
 __all__ = [
     "User",
@@ -21,4 +22,5 @@ __all__ = [
     "ChatMessage",
     "AuditLog",
     "PasswordResetToken",
+    "RevokedToken",
 ]

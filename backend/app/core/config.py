@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = os.getenv("SECRET_KEY", DEMO_SECRET_KEY)
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days for demo ease
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))  # 60 minutes for production security
     
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./careerlens.db")
@@ -31,6 +31,21 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
+    @property
+    def cors_origins(self) -> List[str]:
+        origins = list(self.BACKEND_CORS_ORIGINS)
+        if hasattr(self, "FRONTEND_URL") and self.FRONTEND_URL:
+            clean_fe = self.FRONTEND_URL.strip().rstrip("/")
+            if clean_fe and clean_fe not in origins:
+                origins.append(clean_fe)
+        env_cors = os.getenv("BACKEND_CORS_ORIGINS", "")
+        if env_cors:
+            for o in env_cors.split(","):
+                co = o.strip()
+                if co and co not in origins:
+                    origins.append(co)
+        return origins
+
     # Platform Admin Credentials
     PLATFORM_ADMIN_EMAIL: str = os.getenv("PLATFORM_ADMIN_EMAIL", "superadmin@careerlens.io")
     PLATFORM_ADMIN_PASSWORD_HASH: str = os.getenv(
@@ -49,6 +64,8 @@ class Settings(BaseSettings):
     SMTP_FROM: str = os.getenv("SMTP_FROM", "noreply@careerlens.io")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
     SMTP_SSL: bool = os.getenv("SMTP_SSL", "false").lower() in ("true", "1", "yes")
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     @model_validator(mode="after")

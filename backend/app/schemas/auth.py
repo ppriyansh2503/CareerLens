@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, field_validator
+from app.core.security import validate_password_strength
 
 class UserRegister(BaseModel):
     email: str
@@ -12,6 +13,12 @@ class UserRegister(BaseModel):
     department: Optional[str] = None
     graduation_year: Optional[int] = None
     cgpa: Optional[float] = None
+
+    @field_validator("password")
+    def validate_password(cls, v):
+        if isinstance(v, str):
+            validate_password_strength(v)
+        return v
 
     @field_validator("email", mode="before")
     def normalize_email(cls, v):
@@ -70,6 +77,12 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
     confirm_password: str
+
+    @field_validator("new_password")
+    def validate_new_password(cls, v):
+        if isinstance(v, str):
+            validate_password_strength(v)
+        return v
 
 class MessageResponse(BaseModel):
     message: str

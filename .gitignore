@@ -26,12 +26,15 @@ yarn-error.log*
 *.sqlite
 *.sqlite3
 *.db
+*.db-wal
+*.db-shm
 backend/careerlens.db
 backend/uploads/resumes/*
 !backend/uploads/resumes/.gitkeep
 backend/uploads/certificates/*
 !backend/uploads/certificates/.gitkeep
 uploads/
+backups/
 
 # Environment variables
 .env
