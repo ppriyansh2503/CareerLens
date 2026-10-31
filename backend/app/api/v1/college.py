@@ -14,7 +14,33 @@ def get_college_placement_analytics(
     current_user: User = Depends(get_current_college_admin),
     db: Session = Depends(get_db)
 ):
-    students = db.query(StudentProfile).all()
+    college_name = current_user.college_name
+    if not college_name:
+        students = []
+        certs = []
+        student_skills = []
+    else:
+        students = (
+            db.query(StudentProfile)
+            .join(User, StudentProfile.user_id == User.id)
+            .filter(User.college_name == college_name)
+            .all()
+        )
+        certs = (
+            db.query(Certificate)
+            .join(StudentProfile, Certificate.student_id == StudentProfile.id)
+            .join(User, StudentProfile.user_id == User.id)
+            .filter(User.college_name == college_name)
+            .all()
+        )
+        student_skills = (
+            db.query(StudentSkill)
+            .join(StudentProfile, StudentSkill.student_id == StudentProfile.id)
+            .join(User, StudentProfile.user_id == User.id)
+            .filter(User.college_name == college_name, StudentSkill.is_verified == True)
+            .all()
+        )
+
     total_students = len(students) or 1
 
     ready_count = sum(1 for s in students if (s.placement_readiness_score or 0) >= 80)
@@ -22,7 +48,6 @@ def get_college_placement_analytics(
     upskill_count = sum(1 for s in students if (s.placement_readiness_score or 0) < 60)
 
     # Certificates stats
-    certs = db.query(Certificate).all()
     gold_count = sum(1 for c in certs if c.badge_tier == "GOLD")
     silver_count = sum(1 for c in certs if c.badge_tier == "SILVER")
     flagged_count = sum(1 for c in certs if c.verification_status == "FLAGGED")
@@ -49,7 +74,6 @@ def get_college_placement_analytics(
     ]
 
     # Top verified skills
-    student_skills = db.query(StudentSkill).filter(StudentSkill.is_verified == True).all()
     skill_counts = {}
     for ss in student_skills:
         if ss.skill:
@@ -67,18 +91,18 @@ def get_college_placement_analytics(
         {"skill": "CI/CD & GitHub Actions", "students_missing_percentage": 60, "industry_demand": "High"},
     ]
 
-    avg_batch_readiness = round(sum(s.placement_readiness_score or 0 for s in students) / total_students, 1)
+    avg_batch_readiness = round(sum(s.placement_readiness_score or 0 for s in students) / total_students, 1) if students else 0.0
 
     return {
-        "institution_name": "Indian Institute of Information Technology (IIIT)",
+        "institution_name": college_name or "College Placement Cell",
         "academic_year": "Batch of 2026",
-        "total_enrolled_students": total_students,
+        "total_enrolled_students": len(students),
         "average_readiness_score": avg_batch_readiness,
         "placement_readiness_distribution": {
             "placement_ready_students": ready_count,
             "near_ready_students": near_ready_count,
             "upskilling_needed_students": upskill_count,
-            "ready_percentage": round((ready_count / total_students) * 100, 1)
+            "ready_percentage": round((ready_count / total_students) * 100, 1) if students else 0.0
         },
         "verification_metrics": {
             "total_certificates_audited": len(certs),
@@ -97,7 +121,16 @@ def get_college_student_roster(
     current_user: User = Depends(get_current_college_admin),
     db: Session = Depends(get_db)
 ):
-    students = db.query(StudentProfile).all()
+    college_name = current_user.college_name
+    if not college_name:
+        return []
+
+    students = (
+        db.query(StudentProfile)
+        .join(User, StudentProfile.user_id == User.id)
+        .filter(User.college_name == college_name)
+        .all()
+    )
     roster = []
     for s in students:
         gold_count = sum(1 for c in s.certificates if c.badge_tier == "GOLD")

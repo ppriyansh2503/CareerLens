@@ -19,8 +19,6 @@ def send_chat_message(
     db: Session = Depends(get_db)
 ):
     student = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
-    if not student:
-        student = db.query(StudentProfile).first()
 
     # Get or create active session
     session = None

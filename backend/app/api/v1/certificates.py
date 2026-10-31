@@ -1,7 +1,9 @@
 import os
-import shutil
+import io
+import uuid
 from typing import List
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from PIL import Image
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
@@ -23,20 +25,52 @@ async def upload_certificate(
 ):
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
     if not profile:
-        profile = db.query(StudentProfile).first()
-        if not profile:
-            raise HTTPException(status_code=404, detail="Student profile not found")
+        raise HTTPException(status_code=404, detail="Student profile not found")
 
-    ext = os.path.splitext(file.filename)[1].lower()
+    ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in [".pdf", ".jpg", ".jpeg", ".png", ".webp"]:
         raise HTTPException(status_code=400, detail="Supported formats: PDF, PNG, JPG, WEBP")
 
-    file_bytes = await file.read()
-    file_name = f"cert_{profile.id}_{file.filename}"
+    # Read file with size limit (HTTP 413)
+    max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
+    file_bytes = bytearray()
+    chunk_size = 64 * 1024
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        file_bytes.extend(chunk)
+        if len(file_bytes) > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File exceeds maximum allowed size of {settings.MAX_FILE_SIZE_MB}MB."
+            )
+
+    raw_bytes = bytes(file_bytes)
+
+    # Magic byte and content signature validation
+    if ext == ".pdf":
+        if not raw_bytes.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file format. Uploaded file is not a valid PDF document."
+            )
+    else:
+        try:
+            img = Image.open(io.BytesIO(raw_bytes))
+            img.verify()
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file format or corrupted image file."
+            )
+
+    # Generate secure UUID filename
+    file_name = f"cert_{profile.id}_{uuid.uuid4().hex}{ext}"
     save_path = os.path.join(settings.UPLOAD_DIR, "certificates", file_name)
 
     with open(save_path, "wb") as f:
-        f.write(file_bytes)
+        f.write(raw_bytes)
 
     # Run Multi-Tier Verification
     result = CertificateVerifier.verify_certificate(
@@ -71,19 +105,34 @@ def list_certificates(
 ):
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
     if not profile:
-        profile = db.query(StudentProfile).first()
-        if not profile:
-            return []
+        return []
     return profile.certificates
 
 @router.get("/{cert_id}/audit", response_model=VerificationAuditDetail)
 def get_certificate_audit(
     cert_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
     if not cert:
         raise HTTPException(status_code=404, detail="Certificate not found")
+
+    is_owner = (cert.student and cert.student.user_id == current_user.id)
+    is_recruiter = (current_user.role == "recruiter" and getattr(current_user, "approval_status", "APPROVED") == "APPROVED")
+    is_college_admin = (
+        current_user.role == "college_admin"
+        and getattr(current_user, "approval_status", "APPROVED") == "APPROVED"
+        and cert.student
+        and cert.student.user
+        and cert.student.user.college_name == current_user.college_name
+    )
+    is_admin = (current_user.role == "platform_admin")
+    if not (is_owner or is_recruiter or is_college_admin or is_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this certificate audit."
+        )
 
     details = cert.tamper_analysis_details or {}
 

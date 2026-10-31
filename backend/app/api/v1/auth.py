@@ -38,7 +38,9 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Phone number already registered")
 
     role = user_in.role.strip().lower()
-    if role not in ["student", "recruiter", "college_admin", "platform_admin"]:
+    if role == "platform_admin":
+        raise HTTPException(status_code=400, detail="Platform administrator registration is not permitted.")
+    if role not in ["student", "recruiter", "college_admin"]:
         role = "student"
 
     # All newly registered users start in PENDING status until approved by platform admin
@@ -230,10 +232,23 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
 def demo_switch_account(role: str, db: Session = Depends(get_db)):
     """
     Hackathon Demo Switcher: Instantly logs in as sample Student, Recruiter, or College Admin.
+    Disabled in production.
     """
+    if getattr(settings, "ENVIRONMENT", "development").lower() == "production":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found")
+
     role = role.lower()
-    if role not in ["student", "recruiter", "college_admin", "platform_admin"]:
-        raise HTTPException(status_code=400, detail="Invalid demo role. Choose student, recruiter, college_admin, or platform_admin.")
+    if role == "platform_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo switching to platform_admin is not allowed."
+        )
+
+    if role not in ["student", "recruiter", "college_admin"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid demo role. Choose student, recruiter, or college_admin."
+        )
 
     user = db.query(User).filter(User.role == role).first()
     if not user:

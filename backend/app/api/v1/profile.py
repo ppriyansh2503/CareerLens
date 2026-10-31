@@ -14,10 +14,7 @@ def get_student_profile(
 ):
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
     if not profile:
-        # If user is recruiter or admin viewing student, get default student profile for preview
-        profile = db.query(StudentProfile).first()
-        if not profile:
-            raise HTTPException(status_code=404, detail="Student profile not found")
+        raise HTTPException(status_code=404, detail="Student profile not found")
 
     skills_data = []
     for s in profile.skills:
@@ -88,9 +85,7 @@ def get_readiness_breakdown(
 ):
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
     if not profile:
-        profile = db.query(StudentProfile).first()
-        if not profile:
-            raise HTTPException(status_code=404, detail="No profile found")
+        raise HTTPException(status_code=404, detail="Student profile not found")
 
     total_skills = len(profile.skills)
     verified_skills = [s.skill.name for s in profile.skills if s.is_verified and s.skill]

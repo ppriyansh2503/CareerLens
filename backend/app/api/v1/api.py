@@ -9,7 +9,8 @@ from app.api.v1 import (
     chat,
     recruiter,
     college,
-    admin
+    admin,
+    files
 )
 
 api_router = APIRouter()
@@ -24,6 +25,7 @@ api_router.include_router(chat.router, prefix="/chat", tags=["Bilingual AI Caree
 api_router.include_router(recruiter.router, prefix="/recruiter", tags=["Company / Recruiter Discovery"])
 api_router.include_router(college.router, prefix="/college", tags=["College / TPO Placement Analytics"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Platform Administrator & Governance"])
+api_router.include_router(files.router, tags=["Secure Files & Downloads"])
 
 @api_router.get("/health")
 def api_v1_health():

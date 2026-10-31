@@ -21,8 +21,6 @@ def get_jobs(
     
     # Check if student profile exists to calculate personalized match
     student = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
-    if not student:
-        student = db.query(StudentProfile).first()
 
     results = []
     for job in jobs:
@@ -76,8 +74,6 @@ def get_job_by_id(
         raise HTTPException(status_code=404, detail="Job not found")
 
     student = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
-    if not student:
-        student = db.query(StudentProfile).first()
 
     job_skills_out = [
         JobSkillOut(

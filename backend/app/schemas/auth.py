@@ -35,7 +35,9 @@ class UserRegister(BaseModel):
     def normalize_role(cls, v):
         if isinstance(v, str):
             r = v.strip().lower()
-            if r in ["student", "recruiter", "college_admin", "platform_admin"]:
+            if r == "platform_admin":
+                raise ValueError("Platform administrator registration is not permitted.")
+            if r in ["student", "recruiter", "college_admin"]:
                 return r
         return v
 

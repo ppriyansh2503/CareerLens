@@ -1,9 +1,12 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import Base, engine, SessionLocal
+from app.api.deps import get_current_user, get_db
+from app.models.user import User
+from app.api.v1.files import get_uploaded_file
 from app.api.v1.api import api_router
 from app.seed.seed_data import seed_database_if_empty
 
@@ -75,10 +78,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve uploaded static files
-uploads_abs_path = os.path.abspath(settings.UPLOAD_DIR)
-os.makedirs(uploads_abs_path, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=uploads_abs_path), name="uploads")
+# Authenticated access for uploaded files (replaces insecure public StaticFiles mount)
+@app.get("/uploads/{category}/{filename}", tags=["Authenticated Uploads"])
+def serve_secure_upload(
+    category: str,
+    filename: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return get_uploaded_file(category=category, filename=filename, current_user=current_user, db=db)
 
 # Include API v1 router
 app.include_router(api_router, prefix=settings.API_V1_STR)

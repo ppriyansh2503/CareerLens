@@ -31,7 +31,16 @@ def test_demo_switcher():
     assert res_college.json()["role"] == "college_admin"
 
 def test_jobs_feed():
-    response = client.get("/api/v1/jobs")
+    # Unauthenticated request must be rejected with 401
+    unauth_resp = client.get("/api/v1/jobs")
+    assert unauth_resp.status_code == 401
+
+    # Authenticated student request succeeds
+    res_student = client.post("/api/v1/auth/demo-switch/student")
+    assert res_student.status_code == 200
+    token = res_student.json()["access_token"]
+
+    response = client.get("/api/v1/jobs", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     jobs = response.json()
     assert len(jobs) > 0
@@ -39,7 +48,20 @@ def test_jobs_feed():
     assert jobs[0]["match_score"] is not None
 
 def test_bilingual_chat():
-    res_hi = client.post("/api/v1/chat/message", json={"content": "Mujhe internship match score boost karna hai"})
+    # Unauthenticated request must be rejected with 401
+    unauth_resp = client.post("/api/v1/chat/message", json={"content": "Mujhe internship match score boost karna hai"})
+    assert unauth_resp.status_code == 401
+
+    # Authenticated student request succeeds
+    res_student = client.post("/api/v1/auth/demo-switch/student")
+    assert res_student.status_code == 200
+    token = res_student.json()["access_token"]
+
+    res_hi = client.post(
+        "/api/v1/chat/message",
+        json={"content": "Mujhe internship match score boost karna hai"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
     assert res_hi.status_code == 200
     data = res_hi.json()
     assert data["sender"] == "assistant"

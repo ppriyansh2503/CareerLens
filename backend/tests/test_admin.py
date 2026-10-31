@@ -195,10 +195,9 @@ def test_admin_credential_rotation(admin_credentials):
     assert res_stats.status_code == 200
     assert "total_users" in res_stats.json()
 
-    # 4. Demo switcher for platform_admin works
+    # 4. Demo switcher for platform_admin is forbidden
     res_demo = client.post("/api/v1/auth/demo-switch/platform_admin")
-    assert res_demo.status_code == 200
-    assert res_demo.json()["role"] == "platform_admin"
+    assert res_demo.status_code == 403
 
 def test_admin_change_password_rbac(tokens, admin_credentials):
     # 1. Unauthenticated request must return 401

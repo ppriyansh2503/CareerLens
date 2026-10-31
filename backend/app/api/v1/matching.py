@@ -21,9 +21,7 @@ def get_explainable_match(
 
     student = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
     if not student:
-        student = db.query(StudentProfile).first()
-        if not student:
-            raise HTTPException(status_code=404, detail="Student profile not found")
+        raise HTTPException(status_code=404, detail="Student profile not found")
 
     return MatchingEngine.calculate_match(student, job)
 
@@ -40,8 +38,6 @@ def get_skill_gap_roadmap(
 
     student = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
     if not student:
-        student = db.query(StudentProfile).first()
-        if not student:
-            raise HTTPException(status_code=404, detail="Student profile not found")
+        raise HTTPException(status_code=404, detail="Student profile not found")
 
     return MatchingEngine.generate_learning_roadmap(student, job)

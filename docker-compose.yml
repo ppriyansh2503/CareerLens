@@ -19,6 +19,7 @@ services:
       - SMTP_TLS=${SMTP_TLS:-True}
       - SMTP_SSL=${SMTP_SSL:-False}
       - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SECRET_KEY=${SECRET_KEY:-}
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/careerlens.db:/app/careerlens.db

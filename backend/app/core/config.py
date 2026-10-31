@@ -1,11 +1,14 @@
 import os
 from typing import List
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
+
+DEMO_SECRET_KEY: str = "careerlens-super-secret-jwt-key-for-hackathon-demo-2026"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CareerLens"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "careerlens-super-secret-jwt-key-for-hackathon-demo-2026")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", DEMO_SECRET_KEY)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days for demo ease
     
@@ -47,6 +50,17 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
     SMTP_SSL: bool = os.getenv("SMTP_SSL", "false").lower() in ("true", "1", "yes")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+
+    @model_validator(mode="after")
+    def validate_production_secret(self):
+        if getattr(self, "ENVIRONMENT", "development").lower() == "production":
+            if not self.SECRET_KEY or self.SECRET_KEY == DEMO_SECRET_KEY:
+                raise RuntimeError(
+                    "CRITICAL SECURITY CONFIGURATION ERROR: "
+                    "SECRET_KEY must be set to a secure, custom secret in production "
+                    "and cannot use the default demo secret key."
+                )
+        return self
 
     class Config:
         case_sensitive = True

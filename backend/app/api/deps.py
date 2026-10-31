@@ -24,17 +24,10 @@ def get_current_user(
     token: Optional[str] = Depends(reusable_oauth2)
 ) -> User:
     if not token:
-        # Fallback to default demo student if no token provided in demo mode
-        user = db.query(User).filter(User.role == "student").first()
-        if not user:
-            from app.seed.seed_data import seed_database_if_empty
-            seed_database_if_empty(db)
-            user = db.query(User).filter(User.role == "student").first()
-        if user:
-            return user
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication token required",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
     try:
@@ -118,6 +111,11 @@ def get_current_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires platform administrator privileges",
+        )
+    if getattr(current_user, "approval_status", "APPROVED") != "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your admin account is pending administrator approval.",
         )
     return current_user
 
